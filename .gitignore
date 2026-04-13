@@ -1,21 +1,12 @@
-# Compiled files and executables
-debug/
-target/
+# PlatformIO build
+.pio/
 
-# Editor configuration
+# Editor
 .vscode/
 .zed/
 .helix/
 .nvim.lua
 .idea/
-
-# Rust
-**/*.rs.bk
-*.pdb
-
-# Project planning and AI context (local only)
-CLAUDE.md
-PLAN.md
 
 # Python / Jupyter
 __pycache__/
@@ -32,3 +23,7 @@ data/
 
 # macOS
 **/.DS_Store
+
+CLAUDE.md
+PLAN.md
+
