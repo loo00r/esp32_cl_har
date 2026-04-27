@@ -8,6 +8,8 @@ target/
 .helix/
 .nvim.lua
 .idea/
+.pio/
+.codex
 
 # Rust
 **/*.rs.bk
@@ -16,6 +18,8 @@ target/
 # Project planning and AI context (local only)
 CLAUDE.md
 PLAN.md
+AGENTS.md
+Deep-Learning-for-Human-Activity-Recognition/
 
 # Python / Jupyter
 __pycache__/

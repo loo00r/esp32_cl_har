@@ -1,6 +1,6 @@
 # esp32_cl_har
 
-Continual Learning for Human Activity Recognition on ESP32 using Rust and MicroFlow.
+Continual Learning for Human Activity Recognition on ESP32 using a Rust-first firmware stack.
 
 ## Hardware
 
@@ -68,6 +68,12 @@ esp32_cl_har/
 ├── rust-toolchain.toml      # pins to `esp` Xtensa toolchain
 └── .cargo/config.toml       # target, runner (espflash), rustflags
 ```
+
+## Project Rules
+
+- `AGENTS.md` is the current agent/workflow contract
+- `PLAN.md` is the technical and research source of truth
+- Mainline firmware stays on Rust, not `C++/PlatformIO`
 
 ## Key Dependencies
 
