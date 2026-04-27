@@ -1,6 +1,6 @@
 # esp32_cl_har
 
-Continual Learning for Human Activity Recognition on ESP32 using C++ and TFLite Micro.
+Continual Learning for Human Activity Recognition on ESP32 using Rust and MicroFlow.
 
 ## Hardware
 
@@ -10,13 +10,38 @@ Continual Learning for Human Activity Recognition on ESP32 using C++ and TFLite 
 
 ## Prerequisites
 
-### 1. PlatformIO
+### 1. Rust
 
 ```bash
-pip install platformio
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### 2. Add user to dialout (USB port access)
+### 2. Espressif Rust toolchain (Xtensa support)
+
+```bash
+cargo install espup
+espup install
+```
+
+Add to `~/.bashrc` so it loads automatically:
+
+```bash
+echo '. $HOME/export-esp.sh' >> ~/.bashrc
+```
+
+For the current terminal session:
+
+```bash
+. $HOME/export-esp.sh
+```
+
+### 3. Flash tool
+
+```bash
+cargo install espflash
+```
+
+### 4. Add user to dialout (USB port access)
 
 ```bash
 sudo usermod -a -G dialout $USER
@@ -26,9 +51,9 @@ sudo usermod -a -G dialout $USER
 ## Build & Flash
 
 ```bash
-pio run                        # compile only
-pio run -t upload              # compile + flash
-pio run -t upload && pio device monitor   # flash + open serial monitor
+cargo build          # compile only
+cargo run            # compile + flash + open serial monitor
+cargo build --release
 ```
 
 ## Project Structure
@@ -36,16 +61,24 @@ pio run -t upload && pio device monitor   # flash + open serial monitor
 ```
 esp32_cl_har/
 ├── src/
-│   └── main.cpp               # entry point, main loop
-├── include/                   # headers (model_data.h etc.)
-├── platformio.ini             # board, framework, dependencies
-├── model.tflite               # quantized 1D-CNN model
-└── notebooks/                 # PC-side Python (training, export)
+│   ├── bin/main.rs          # entry point, main loop
+│   └── lib.rs               # shared library code
+├── Cargo.toml               # dependencies
+├── build.rs                 # linker configuration
+├── rust-toolchain.toml      # pins to `esp` Xtensa toolchain
+└── .cargo/config.toml       # target, runner (espflash), rustflags
 ```
 
 ## Key Dependencies
 
-| Library | Purpose |
-|---------|---------|
-| `tensorflow/TensorFlowLite_ESP32` | TFLite Micro inference engine |
-| `electroniccats/MPU6050` | MPU6050 I2C driver |
+| Crate | Purpose |
+|-------|---------|
+| `esp-hal` | Official Espressif HAL (GPIO, I2C, SPI, UART, timers) |
+| `esp-bootloader-esp-idf` | ESP-IDF compatible bootloader descriptor |
+| `critical-section` | Safe atomic operations (required by esp-hal) |
+
+## Toolchain Notes
+
+- Target: `xtensa-esp32-none-elf`
+- Compiler: Espressif fork of Rust with Xtensa LLVM backend (`rustup toolchain: esp`)
+- No standard library (`#![no_std]`, `#![no_main]`)
