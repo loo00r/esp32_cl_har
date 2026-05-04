@@ -219,3 +219,39 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
   - `NaN in y = 0`
 
 **Рішення**: на цьому кроці свідомо зупинилися перед побудовою моделі. Preprocessing і segmentation зафіксовано як окремий завершений підетап, щоб далі окремо реалізувати `Conv1D` архітектуру і `Leave-One-Subject-Out CV` без змішування етапів.
+
+---
+
+## Фаза 2b — Фіксація baseline `Conv1D` архітектури
+
+**Що зроблено**: у `notebooks/CNN_training.ipynb` додано і перевірено базову `1D-CNN` архітектуру для вікон `80x3`:
+
+- `Conv1D(32, kernel_size=5, activation='relu', padding='same')`
+- `Conv1D(64, kernel_size=3, activation='relu', padding='same')`
+- `GlobalAveragePooling1D()`
+- `Dense(6, activation='softmax')`
+
+Модель успішно зібрана в TensorFlow/Keras і дала такий summary:
+
+- `input shape`: `(80, 3)`
+- після першого `Conv1D`: `(80, 32)`
+- після другого `Conv1D`: `(80, 64)`
+- після `GlobalAveragePooling1D`: `64` ознаки
+- вихід: `6` класів
+- `trainable params`: `7,110` (`~27.77 KB` у float32-представленні)
+
+**Чому саме така архітектура**:
+
+- `ReLU` обрано як просту і практичну нелінійність для TinyML / embedded-friendly baseline: вона дешева, стандартна і краще узгоджується з подальшою `INT8` квантизацією, ніж складніші активації на кшталт `GELU`.
+- `Softmax` у фінальному шарі використано тому, що задача є `single-label` класифікацією з `6` взаємовиключними активностями; потрібен нормалізований розподіл імовірностей по класах, а не незалежні `sigmoid`-оцінки.
+- `GlobalAveragePooling1D` обрано замість `Flatten`, щоб уникнути зайвого росту кількості параметрів перед класифікатором і тримати baseline компактним для подальшого embedded deployment.
+
+**Рішення**: на цьому етапі свідомо не ускладнювали модель `GELU`, attention-блоками, LSTM або глибшими head-частинами. Мета поточного baseline — не максимальна desktop-`accuracy`, а легка, зрозуміла і потенційно квантизовна архітектура, від якої далі можна перейти до `LOSO CV`, `INT8` export і embedded inference path.
+
+---
+
+## Фаза 0h — Уточнення thesis-positioning проти новіших робіт
+
+**Що зроблено**: після перегляду новіших статей `2025–2026` уточнено дослідницьке позиціонування в `THESIS.md` і `PLAN.md`. Явно зафіксовано, що найближчим прямим аналогом є `COOL (2026)`, тоді як `PACL+ (2025)`, `TrustTiny-HAR (2026)` і новіші TinyML HAR роботи використовуються як сильний фон для `Related Work`, replay-мотивації та resource-oriented comparison.
+
+**Рішення**: не роздували документацію окремими research memo файлами. Натомість мінімально і прямо скоригували thesis-рамку: робота не претендує на `state-of-the-art` accuracy, а захищає відтворюваний `ESP32 + Rust/no_std + MPU6050` replay-based baseline з порівнянням `FIFO` vs `reservoir-per-class` під жорстким memory budget.

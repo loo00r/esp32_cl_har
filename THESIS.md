@@ -30,6 +30,21 @@
 
 > This work investigates whether a minimal continual learning pipeline can be deployed on an `ESP32-WROOM-32` microcontroller for IMU-based human activity recognition. A frozen feature extractor is trained offline, while a lightweight Rust-implemented online classification layer is updated on-device using mini-batch SGD. We compare `FIFO` and `per-class reservoir replay` under the same memory budget and evaluate their effect on personalization, forgetting, latency, RAM usage, flash footprint, and continual learning step time.
 
+## Positioning Against Recent Work
+
+Найближчий прямий сучасний аналог — `COOL (2026)`, де також розглядається `HAR + on-device continual learning + MCU`, але через складніший `KAN`-based classifier і `STM32H743`.
+
+Наша робота **не** намагається конкурувати з такими підходами за максимальною `accuracy` або архітектурною складністю. Натомість ми свідомо фокусуємося на:
+
+- `ESP32-WROOM-32`, а не потужнішому MCU-класі
+- `Rust/no_std` firmware stack
+- реальному `MPU6050`
+- мінімальному replay-based CL baseline
+- порівнянні `FIFO` vs `reservoir-per-class` за однакового memory budget
+- явному вимірюванні `RAM`, `Flash`, `latency` і `CL step time`
+
+Тобто сила роботи має бути не в твердженні `state of the art`, а у відтворюваному, ресурсно-прозорому embedded baseline між pure TinyML inference papers і складнішими HAR+CL системами.
+
 ## Experimental Framing
 
 Експериментальний дизайн має бути простим і чистим:
