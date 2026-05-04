@@ -250,6 +250,30 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 
 ---
 
+## Фаза 2c — Перехід на fold-aware preprocessing без leakage
+
+**Що зроблено**: у `notebooks/CNN_training.ipynb` переписано preprocessing-частину так, щоб вона відповідала майбутньому `Leave-One-Subject-Out CV`, а не глобальному preprocessing по всьому датасету. Замість одноразового `z-score` на всьому `df_model` і глобального windowing тепер введено окремі helper-функції:
+
+- `prepare_dataframe(...)`
+- `add_contiguous_segments(...)`
+- `fit_zscore_stats(...)`
+- `apply_zscore_stats(...)`
+- `create_windows_from_segments(...)`
+- `build_one_fold_data(...)`
+
+**Що змінено по суті**:
+
+- прибрано leakage від глобальної нормалізації: `mean/std` тепер мають рахуватись тільки на train-subjects всередині одного fold;
+- тестовий subject нормалізується тими ж train-статистиками;
+- windowing тепер йде не по всьому `user_id + activity`, а по `user_id + activity + segment_id`;
+- `segment_id` вводиться через аналіз розривів у `timestamp`, щоб вікна не проходили через штучно склеєні часові шматки одного й того ж класу.
+
+**Рішення**: це не косметичне прибирання, а критичне виправлення experimental protocol. Без цієї правки `single-fold` і майбутній `LOSO CV` були б методично слабшими через optimistic leakage і некоректне windowing через часові розриви.
+
+**Примітка**: після зміни логіки очищено outputs у змінених notebook-cells, тому актуальні значення треба повторно прогнати в Jupyter вже по новому fold-aware pipeline.
+
+---
+
 ## Фаза 0h — Уточнення thesis-positioning проти новіших робіт
 
 **Що зроблено**: після перегляду новіших статей `2025–2026` уточнено дослідницьке позиціонування в `THESIS.md` і `PLAN.md`. Явно зафіксовано, що найближчим прямим аналогом є `COOL (2026)`, тоді як `PACL+ (2025)`, `TrustTiny-HAR (2026)` і новіші TinyML HAR роботи використовуються як сильний фон для `Related Work`, replay-мотивації та resource-oriented comparison.
