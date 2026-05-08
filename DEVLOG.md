@@ -1190,3 +1190,72 @@ AVERAGE_POOL_2D
 - скопіювати `microflow_fullconv32_feature_extractor_int8.tflite` і metadata у `src/model_artifacts/`
 - додати окремий `MicroFlow-32` backend/feature flag або тимчасово перемкнути artifact для виміру latency
 - заміряти streaming latency на ESP32 і порівняти з `MicroFlow-64` (`mean ≈ 298.7 ms`)
+
+---
+
+## Фаза 3m — ESP32 latency ablation для `MicroFlow-32`
+
+**Що зроблено**:
+
+- скопійовано `MicroFlow-32` feature extractor artifact у firmware artifacts:
+  - [`src/model_artifacts/microflow_fullconv32_feature_extractor_int8.tflite`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv32_feature_extractor_int8.tflite:1)
+  - [`src/model_artifacts/microflow_fullconv32_feature_extractor_int8_metadata.json`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv32_feature_extractor_int8_metadata.json:1)
+- у `.gitignore` додано вузький виняток `!src/model_artifacts/*.tflite`, бо ці малі deployment artifacts потрібні для `include_bytes!` і відтворюваного firmware build
+- додано feature flag `microflow32_backend`
+- додано окремий backend module:
+  - [`src/inference_microflow32.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference_microflow32.rs:1)
+- `main.rs` тепер підтримує три режими:
+  - default stub backend
+  - `microflow_backend` для `64` features
+  - `microflow32_backend` для `32` features
+
+**Команди**:
+
+```bash
+cargo build
+cargo build --features microflow_backend --bin esp32_cl_har
+cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har
+```
+
+**Build / flash result для `MicroFlow-32`**:
+
+- default build: success
+- `MicroFlow-64` build: success
+- `MicroFlow-32` build: success
+- hardware run: success
+- app / partition size: `124,784 / 4,128,768 bytes`, тобто `3.02%`
+
+**Runtime latency result для `MicroFlow-32`**:
+
+Після `10` attempts:
+
+- `min_us=171961`
+- `mean_us=172072`
+- `max_us=173058`
+
+Після `20` attempts:
+
+- `min_us=171960`
+- `mean_us=172017`
+- `max_us=173058`
+
+**Порівняння `64` vs `32`**:
+
+| Extractor | Features | Mean latency | App size | Feature RAM | Replay RAM (`6 x 16 x dim x f32`) |
+|---|---:|---:|---:|---:|---:|
+| `MicroFlow-64` | `64` | `~298.7 ms` | `125,840 bytes` | `256 B` | `24 KB` |
+| `MicroFlow-32` | `32` | `~172.0 ms` | `124,784 bytes` | `128 B` | `12 KB` |
+
+**Interpretation**:
+
+- `MicroFlow-32` зменшив streaming feature extraction latency приблизно на `42%`
+- replay memory для майбутнього `FIFO/reservoir` CL зменшується вдвічі
+- firmware Flash size майже не змінився, бо більша частина footprint іде від runtime/generated support code, а не тільки від кількості latent features
+- notebook validation accuracy для `32` path не просіла критично, тому `32` features виглядають кращим embedded candidate
+
+**Рішення**:
+
+- `MicroFlow-64` лишається stronger baseline/reference
+- `MicroFlow-32` стає практичним основним кандидатом для подальшого ESP32 CL path
+- наступний крок перед `OnlineLayer`: зафіксувати feature-dim як compile-time параметр або підготувати `OnlineLayer32`, не змішуючи `32` і `64` шляхи в одному runtime

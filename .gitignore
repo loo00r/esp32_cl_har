@@ -33,6 +33,7 @@ __pycache__/
 data/
 *.csv
 *.tflite
+!src/model_artifacts/*.tflite
 
 # macOS
 **/.DS_Store

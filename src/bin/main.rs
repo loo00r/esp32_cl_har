@@ -15,15 +15,12 @@ use esp_hal::{
     time::{Duration, Instant, Rate},
 };
 use esp32_cl_har::{
-    model::{
-        BASELINE_CLASSIFIER_ARTIFACT, FEATURE_EXTRACTOR_ARTIFACT, INPUT_TENSOR_SIZE,
-        SAMPLE_RATE_HZ, WINDOW_STRIDE,
-    },
+    model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
     mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
     quant::quantize_window,
     window::SlidingWindow,
 };
-#[cfg(not(feature = "microflow_backend"))]
+#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
 use esp32_cl_har::{
     inference::{FrozenInferenceBackend, InferenceError},
     model::{FEATURE_TENSOR_SIZE, NUM_CLASSES},
@@ -31,11 +28,13 @@ use esp32_cl_har::{
 };
 #[cfg(feature = "microflow_backend")]
 use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowFeatureBackend;
 use log::info;
 
 const SAMPLE_PERIOD: Duration = Duration::from_millis(50);
 const LOG_EVERY_SAMPLES: u32 = SAMPLE_RATE_HZ;
-#[cfg(feature = "microflow_backend")]
+#[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
 const LATENCY_REPORT_EVERY_ATTEMPTS: u32 = 10;
 
 #[panic_handler]
@@ -119,33 +118,33 @@ fn main() -> ! {
     info!(
         "phase 3 streaming path ready: backend={}, classifier_artifact={}, feature_artifact={}",
         phase3_backend_name(),
-        BASELINE_CLASSIFIER_ARTIFACT,
-        FEATURE_EXTRACTOR_ARTIFACT,
+        phase3_classifier_artifact_name(),
+        phase3_feature_artifact_name(),
     );
 
     let mut next_sample_at = Instant::now() + SAMPLE_PERIOD;
     let mut sample_count: u32 = 0;
     let mut led_on = false;
     let mut window = SlidingWindow::new();
-    #[cfg(not(feature = "microflow_backend"))]
+    #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let inference = FrozenInferenceBackend::new();
-    #[cfg(feature = "microflow_backend")]
+    #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let inference = MicroflowFeatureBackend::new();
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
-    #[cfg(not(feature = "microflow_backend"))]
+    #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut classifier_output = [0_i8; NUM_CLASSES];
-    #[cfg(not(feature = "microflow_backend"))]
+    #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut quantized_features = [0_i8; FEATURE_TENSOR_SIZE];
-    #[cfg(not(feature = "microflow_backend"))]
+    #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut dequantized_features = [0.0_f32; FEATURE_TENSOR_SIZE];
     let mut samples_since_inference: usize = 0;
     let mut inference_attempts: u32 = 0;
     let mut logged_full_window = false;
-    #[cfg(feature = "microflow_backend")]
+    #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let mut latency_min_us: u64 = u64::MAX;
-    #[cfg(feature = "microflow_backend")]
+    #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let mut latency_max_us: u64 = 0;
-    #[cfg(feature = "microflow_backend")]
+    #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let mut latency_sum_us: u64 = 0;
 
     loop {
@@ -175,7 +174,7 @@ fn main() -> ! {
                         inference_attempts += 1;
                         quantize_window(&window, &mut quantized_input);
 
-                        #[cfg(feature = "microflow_backend")]
+                        #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
                         {
                             let inference_started = Instant::now();
                             let features = inference.extract_features_quantized(&quantized_input);
@@ -202,12 +201,12 @@ fn main() -> ! {
                                     inference_attempts,
                                     latency_min_us,
                                     latency_mean_us,
-                                    latency_max_us,
+                                latency_max_us,
                                 );
                             }
                         }
 
-                        #[cfg(not(feature = "microflow_backend"))]
+                        #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
                         {
                             let class_result =
                                 inference.classify(&quantized_input, &mut classifier_output);
@@ -273,12 +272,42 @@ fn main() -> ! {
     }
 }
 
-#[cfg(feature = "microflow_backend")]
+#[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
 fn phase3_backend_name() -> &'static str {
     MicroflowFeatureBackend::new().backend_name()
 }
 
-#[cfg(not(feature = "microflow_backend"))]
+#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
 fn phase3_backend_name() -> &'static str {
     FrozenInferenceBackend::new().backend_name()
+}
+
+#[cfg(feature = "microflow_backend")]
+fn phase3_classifier_artifact_name() -> &'static str {
+    esp32_cl_har::model::BASELINE_CLASSIFIER_ARTIFACT
+}
+
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+fn phase3_classifier_artifact_name() -> &'static str {
+    "microflow_fullconv32_classifier_int8.tflite"
+}
+
+#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
+fn phase3_classifier_artifact_name() -> &'static str {
+    esp32_cl_har::model::BASELINE_CLASSIFIER_ARTIFACT
+}
+
+#[cfg(feature = "microflow_backend")]
+fn phase3_feature_artifact_name() -> &'static str {
+    esp32_cl_har::model::FEATURE_EXTRACTOR_ARTIFACT
+}
+
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+fn phase3_feature_artifact_name() -> &'static str {
+    esp32_cl_har::model::MICROFLOW32_FEATURE_EXTRACTOR_ARTIFACT
+}
+
+#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
+fn phase3_feature_artifact_name() -> &'static str {
+    esp32_cl_har::model::FEATURE_EXTRACTOR_ARTIFACT
 }

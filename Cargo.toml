@@ -25,6 +25,7 @@ required-features = ["microflow_backend"]
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]
+microflow32_backend = ["dep:microflow", "dep:nalgebra"]
 
 [dependencies]
 esp-hal = { version = "~1.0", features = ["esp32"] }
