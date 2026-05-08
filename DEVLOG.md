@@ -1923,3 +1923,154 @@ UART_REPLAY_SMOKE tick=32 labels=20 train_steps=2 buffer_len=20 invalid=4
 - replay insert має малий cost (`~1-45 us`, steady `1-2 us`)
 - train update cost у цьому smoke: `560-806 us`
 - наступний маленький крок: повторити той самий isolated smoke з `FIFO` policy або зробити compile-time перемикання policy для експериментів, усе ще без `main.rs`
+
+## Фаза 4e — Isolated FIFO policy smoke
+
+**Що зроблено**: `uart_replay_smoke.rs` отримав compile-time перемикач `replay_fifo_policy`, щоб тим самим isolated binary перевіряти `Reservoir` і `FIFO` без дублювання firmware path.
+
+**Зміна**:
+
+- `Cargo.toml`
+  - додано feature `replay_fifo_policy = []`
+- [`src/bin/uart_replay_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/uart_replay_smoke.rs:1)
+  - default policy: `Reservoir`
+  - `--features replay_fifo_policy`: `FIFO`
+
+**Межі кроку**:
+
+- `main.rs` не змінювався
+- `MPU6050` не використовується
+- `MicroFlow` не використовується
+- persistence/NVS/flash writes не додавались
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --bin uart_replay_smoke
+. $HOME/export-esp.sh && cargo build --features replay_fifo_policy --bin uart_replay_smoke
+. $HOME/export-esp.sh && cargo build
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 45s cargo run --features replay_fifo_policy --bin uart_replay_smoke
+```
+
+**Build / flash**:
+
+- `cargo build --bin uart_replay_smoke` — success
+- `cargo build --features replay_fifo_policy --bin uart_replay_smoke` — success
+- `cargo build` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- FIFO smoke flashed successfully
+- app / partition size: `113,264 / 4,128,768 bytes`, тобто `2.74%`
+
+**Hardware smoke output**:
+
+```text
+uart replay smoke started
+policy=fifo, labels_per_update=10, batch_size=12, lr=0.001
+UART_REPLAY_SMOKE tick=6 labels=0 train_steps=0 buffer_len=0 invalid=0
+LABEL label=0 name=Walking added=1 class_len=1 buffer_len=1 push_us=53 total_seen=1
+LABEL label=1 name=Jogging added=1 class_len=1 buffer_len=2 push_us=1 total_seen=2
+LABEL label=2 name=Upstairs added=1 class_len=1 buffer_len=3 push_us=1 total_seen=3
+LABEL label=3 name=Downstairs added=1 class_len=1 buffer_len=4 push_us=1 total_seen=4
+LABEL label=4 name=Sitting added=1 class_len=1 buffer_len=5 push_us=1 total_seen=5
+LABEL label=5 name=Standing added=1 class_len=1 buffer_len=6 push_us=2 total_seen=6
+LABEL label=0 name=Walking added=1 class_len=2 buffer_len=7 push_us=1 total_seen=7
+LABEL label=1 name=Jogging added=1 class_len=2 buffer_len=8 push_us=2 total_seen=8
+LABEL label=2 name=Upstairs added=1 class_len=2 buffer_len=9 push_us=2 total_seen=9
+LABEL label=3 name=Downstairs added=1 class_len=2 buffer_len=10 push_us=2 total_seen=10
+TRAIN policy=fifo step=1 batch_len=12 sample_us=53 update_us=810 total_seen=10 buffer_len=10
+TRAIN policy=fifo step=2 batch_len=12 sample_us=11 update_us=564 total_seen=20 buffer_len=20
+UART_REPLAY_SMOKE tick=32 labels=20 train_steps=2 buffer_len=20 invalid=0
+```
+
+**Висновок**:
+
+- isolated `UART -> ReplayBuffer32 -> OnlineLayer32 update` працює і для `FIFO`
+- `Reservoir` і `FIFO` тепер обидва мають hardware-smoke підтвердження
+- це достатній checkpoint перед наступним малим кроком: інтегрувати RAM-only CL loop у `main.rs`, але тільки з compile-time policy і без persistence
+
+## Фаза 4f — Feature-gated RAM-only CL loop in `main.rs`
+
+**Що зроблено**: RAM-only CL loop інтегровано в основний `MPU6050 -> MicroFlow-32 -> OnlineLayer32` path, але тільки за явним feature gate `cl_uart_labels`.
+
+**Зміна**:
+
+- `Cargo.toml`
+  - додано feature `cl_uart_labels = []`
+- [`src/bin/main.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/main.rs:1)
+  - default `microflow32_backend` лишається inference-only
+  - `microflow32_backend,cl_uart_labels` вмикає UART labels + RAM-only replay + train every `K=10`
+  - default CL policy: `Reservoir`
+  - `replay_fifo_policy` перемикає CL policy на `FIFO`
+  - використано `Uart::read_buffered(...)`, не blocking `read(...)`
+
+**Runtime flow у цьому кроці**:
+
+```text
+MPU6050
+-> SlidingWindow 80 samples
+-> quantize i8[240]
+-> MicroFlow-32 feature extractor
+-> f32[32] features
+-> OnlineLayer32.forward()
+-> if UART label bytes available:
+     ReplayBuffer32.push(label, latest features)
+     every K=10 labels: sample batch + OnlineLayer32.backward_batch()
+```
+
+**Межі кроку**:
+
+- CL loop вмикається тільки explicit feature `cl_uart_labels`
+- persistence/NVS/flash writes не додавались
+- protocol лишається single-character labels `0..5`
+- без JSON/checksum/timestamps
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo build --features microflow32_backend,cl_uart_labels --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo build --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 55s cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har
+```
+
+**Build / flash**:
+
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- `cargo build --features microflow32_backend,cl_uart_labels --bin esp32_cl_har` — success
+- `cargo build --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har` — success
+- feature-gated CL main flashed successfully
+- app / partition size: `135,424 / 4,128,768 bytes`, тобто `3.28%`
+
+**Hardware smoke output**:
+
+```text
+mpu6050 detected at 0x68, WHO_AM_I=0x70
+phase 3 streaming path ready: backend=microflow-fullconv32-feature-extractor
+phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy=reservoir, labels_per_update=10, batch_size=12, lr=0.001, persistence=off
+microflow feature ok: attempt=1, inference_us=173121
+online32 forward ok: attempt=1, online_us=184, pred=4(Sitting), confidence=0.9944524
+microflow feature ok: attempt=4, inference_us=172479
+online32 forward ok: attempt=4, online_us=72, pred=4(Sitting), confidence=0.9945515
+LABEL label=4 name=Sitting added=1 class_len=1 buffer_len=1 push_us=45 total_seen=1 attempt=4
+LABEL label=4 name=Sitting added=1 class_len=8 buffer_len=8 push_us=6 total_seen=8 attempt=4
+microflow feature ok: attempt=5, inference_us=172507
+online32 forward ok: attempt=5, online_us=89, pred=4(Sitting), confidence=0.9944524
+LABEL label=4 name=Sitting added=1 class_len=10 buffer_len=10 push_us=6 total_seen=10 attempt=5
+TRAIN policy=reservoir step=1 batch_len=12 sample_us=59 update_us=665 total_seen=10 buffer_len=10 attempt=5
+microflow latency stats: attempts=10, min_us=172479, mean_us=172558, max_us=173121
+microflow feature ok: attempt=17, inference_us=172499
+online32 forward ok: attempt=17, online_us=89, pred=4(Sitting), confidence=0.9944629
+```
+
+**Висновок**:
+
+- feature-gated RAM-only CL loop працює в `main.rs`
+- `UART label -> latest MicroFlow-32 features -> ReplayBuffer32 -> OnlineLayer32.backward_batch()` підтверджено на ESP32
+- loop не завис після labels/train і продовжив inference до timeout
+- CL overhead лишається малим порівняно з MicroFlow-32 feature extraction:
+  - MicroFlow-32: приблизно `172.5 ms`
+  - OnlineLayer forward: приблизно `72-184 us`
+  - replay push: steady `~2-6 us`
+  - train update: `665 us` у цьому smoke
+- наступний маленький крок: hardware smoke `main.rs` з `cl_uart_labels,replay_fifo_policy`, щоб підтвердити FIFO у повному sensor/inference loop

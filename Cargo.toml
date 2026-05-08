@@ -35,6 +35,7 @@ path = "./src/bin/mpu_domain_shift_probe.rs"
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]
 microflow32_backend = ["dep:microflow", "dep:nalgebra"]
+cl_uart_labels = []
 replay_fifo_policy = []
 
 [dependencies]
