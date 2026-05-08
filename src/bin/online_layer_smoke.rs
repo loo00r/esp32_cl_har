@@ -14,6 +14,7 @@ use esp32_cl_har::{
 use log::info;
 
 const IDLE_DELAY: Duration = Duration::from_millis(1_000);
+const SMOKE_LR: f32 = 0.01;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -79,7 +80,7 @@ fn main() -> ! {
         let forward_us = forward_started.elapsed().as_micros();
 
         let backward_started = Instant::now();
-        layer.backward_batch(&batch, &labels, 0.05);
+        layer.backward_batch(&batch, &labels, SMOKE_LR);
         let backward_us = backward_started.elapsed().as_micros();
 
         let after = layer.forward(&sample_a);

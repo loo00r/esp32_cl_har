@@ -629,6 +629,7 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - типові `backward_batch` latency: близько `243–247 us`
 - вихід після `backward_batch()` змінювався між ітераціями, тобто update path реально працює
 - LED heartbeat також працював, тобто main loop лишався живим
+- при довгій серії однакових synthetic update-ів спостерігався дрейф prediction, тому numerical stability trainable head ще треба окремо звірити перед переходом до `ReplayBuffer`
 
 **Що це означає**:
 
@@ -637,3 +638,35 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - це все ще не інтеграція з frozen feature extractor і не повна `Фаза 4`, а саме підтвердження життєздатності CL head на залізі
 
 **Примітка**: smoke test використовував synthetic `features[64]`, без сенсора, без inference backend і без runtime flash writes. Це був навмисно мінімальний hardware checkpoint перед `ReplayBuffer`.
+
+---
+
+## Фаза 4a.4 — Мінімальна стабілізація `OnlineLayer` на ESP32
+
+**Що зроблено**: після першого hardware smoke test внесено одну локальну стабілізаційну правку без зміни архітектури CL head.
+
+**Зміни**:
+
+- у [`src/online_layer.rs`](/home/g00n3r/projects/esp32_cl_har/src/online_layer.rs:1) саморобний `exp_approx()` замінено на `libm::expf()` для більш передбачуваної `softmax`
+- у [`src/bin/online_layer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/online_layer_smoke.rs:1) learning rate для smoke test знижено до `0.01`
+- у [`Cargo.toml`](/home/g00n3r/projects/esp32_cl_har/Cargo.toml:1) додано залежність `libm`
+
+**Перевірка**:
+
+- виконано `cargo build`
+- після цього повторно виконано `cargo run --bin online_layer_smoke` на реальній `ESP32`
+
+**Спостереження з логів**:
+
+- steady-state `forward` latency: близько `46–51 us`
+- steady-state `backward_batch` latency: близько `174–179 us`
+- ймовірність цільового класу `p0` зростала монотонно:
+  - приблизно від `0.1667` на старті
+  - до `0.89+` у довшій серії update-ів
+- prediction більше не дрейфував у бік іншого класу під тим самим synthetic batch
+
+**Що це означає**:
+
+- ізольований Rust `OnlineLayer` тепер не лише виконується на `ESP32`, а й демонструє чисельно стабільніший update path
+- це достатній stopping point для `Фази 4a`
+- наступним кроком уже можна повертатись до планового рішення: не лізти одразу в повну `Фазу 4`, а повернутись до `Фази 3` practical frozen inference backend

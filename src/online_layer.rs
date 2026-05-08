@@ -1,4 +1,5 @@
 use crate::model::{FEATURE_TENSOR_SIZE, NUM_CLASSES};
+use libm::expf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OnlineLayer {
@@ -85,7 +86,8 @@ pub fn softmax(logits: [f32; NUM_CLASSES]) -> [f32; NUM_CLASSES] {
     let mut exp_values = [0.0; NUM_CLASSES];
     let mut sum = 0.0;
     for (idx, &value) in logits.iter().enumerate() {
-        let exp_value = exp_approx(value - max_logit);
+        let shifted = value - max_logit;
+        let exp_value = expf(shifted);
         exp_values[idx] = exp_value;
         sum += exp_value;
     }
@@ -97,16 +99,6 @@ pub fn softmax(logits: [f32; NUM_CLASSES]) -> [f32; NUM_CLASSES] {
         }
     }
     probs
-}
-
-fn exp_approx(x: f32) -> f32 {
-    let mut term = 1.0;
-    let mut sum = 1.0;
-    for n in 1..=8 {
-        term *= x / n as f32;
-        sum += term;
-    }
-    if sum > 0.0 { sum } else { 0.0 }
 }
 
 #[cfg(test)]
