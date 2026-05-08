@@ -8,9 +8,18 @@ version      = "0.1.0"
 name = "esp32_cl_har"
 path = "./src/bin/main.rs"
 
+# Diagnostic-only MicroFlow smoke test. Kept for comparing MicroFlow's public
+# f32 API with the production-like quantized input path.
 [[bin]]
 name = "microflow_feature_smoke"
 path = "./src/bin/microflow_feature_smoke.rs"
+required-features = ["microflow_backend"]
+
+# Active Phase 3 smoke test for the intended ESP32 flow:
+# normalized window -> i8[240] -> MicroFlow predict_quantized -> f32[64].
+[[bin]]
+name = "microflow_feature_quantized_smoke"
+path = "./src/bin/microflow_feature_quantized_smoke.rs"
 required-features = ["microflow_backend"]
 
 [features]

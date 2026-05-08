@@ -1,6 +1,10 @@
 #![no_std]
 #![no_main]
 
+// Archived Phase 4a checkpoint.
+// Tests OnlineLayer math on ESP32 using synthetic features only.
+// No frozen backend, no sensor loop, no replay, no persistence.
+
 use esp_hal::{
     clock::CpuClock,
     gpio::{Level, Output, OutputConfig},

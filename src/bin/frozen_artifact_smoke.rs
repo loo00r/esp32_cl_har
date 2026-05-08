@@ -1,6 +1,10 @@
 #![no_std]
 #![no_main]
 
+// Archived Phase 3 checkpoint.
+// Verifies that frozen model artifacts are embedded as read-only bytes.
+// Not part of the active inference path.
+
 use esp_hal::{
     clock::CpuClock,
     gpio::{Level, Output, OutputConfig},

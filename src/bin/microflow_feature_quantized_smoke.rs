@@ -1,9 +1,9 @@
 #![no_std]
 #![no_main]
 
-// Diagnostic-only smoke binary.
-// It exercises MicroFlow's public f32 API, where MicroFlow quantizes input
-// internally. Keep it for comparison; do not use it as the main ESP32 pipeline.
+// Active Phase 3 smoke binary for the intended ESP32 inference boundary:
+// i8[240] input tensor -> MicroFlow predict_quantized() -> f32[64] features.
+// No sensor loop, no CL, no replay, no persistence.
 
 use esp_hal::{
     clock::CpuClock,
@@ -13,7 +13,8 @@ use esp_hal::{
 };
 use esp32_cl_har::{
     inference_microflow::MicroflowFeatureBackend,
-    model::{FEATURE_COUNT, FEATURE_TENSOR_SIZE, WINDOW_SIZE},
+    model::{FEATURE_COUNT, FEATURE_TENSOR_SIZE, INPUT_TENSOR_SIZE, WINDOW_SIZE},
+    quant::{quantize_scalar, INPUT_SCALE, INPUT_ZERO_POINT},
 };
 use log::info;
 
@@ -37,11 +38,12 @@ fn busy_wait(duration: Duration) {
     while started.elapsed() < duration {}
 }
 
-fn synthetic_window() -> [f32; WINDOW_SIZE * FEATURE_COUNT] {
-    let mut input = [0.0; WINDOW_SIZE * FEATURE_COUNT];
+fn synthetic_quantized_window() -> [i8; INPUT_TENSOR_SIZE] {
+    let mut input = [0; INPUT_TENSOR_SIZE];
     let mut i = 0;
     while i < input.len() {
-        input[i] = (i as f32 * 0.0125) - 1.0;
+        let normalized = (i as f32 * 0.0125) - 1.0;
+        input[i] = quantize_scalar(normalized, INPUT_SCALE, INPUT_ZERO_POINT);
         i += 1;
     }
     input
@@ -64,15 +66,19 @@ fn main() -> ! {
     let mut led_on = false;
 
     let backend = MicroflowFeatureBackend::new();
-    let input = synthetic_window();
+    let input = synthetic_quantized_window();
 
     let started = Instant::now();
-    let features = backend.extract_features(&input);
+    let features = backend.extract_features_quantized(&input);
     let elapsed_us = started.elapsed().as_micros();
     let checksum = checksum(&features);
 
-    info!("microflow feature smoke prepared");
+    info!("microflow quantized feature smoke prepared");
     info!("backend={}", backend.backend_name());
+    info!(
+        "input_shape=[1,{},{},1], input_dtype=i8, output_shape=[1,1,1,{}]",
+        WINDOW_SIZE, FEATURE_COUNT, FEATURE_TENSOR_SIZE,
+    );
     info!(
         "latency_us={}, checksum={}, f0={}, f1={}, f2={}, f3={}",
         elapsed_us,

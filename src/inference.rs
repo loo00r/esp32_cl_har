@@ -1,5 +1,9 @@
 use crate::model::{FEATURE_TENSOR_SIZE, INPUT_TENSOR_SIZE, NUM_CLASSES};
 
+// Placeholder boundary for the main sensor loop.
+// The active MicroFlow feasibility work lives behind the `microflow_backend`
+// feature in `inference_microflow.rs`; this stub keeps default firmware builds
+// simple until the real frozen backend is wired into the loop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InferenceError {
     BackendUnavailable,

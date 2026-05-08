@@ -810,3 +810,246 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 
 - наступний practical крок: підключити `MicroFlowFeatureBackend` до існуючого `FrozenInferenceBackend` boundary або окремого Phase 3 path, але без зміни CL-архітектури
 - `TFLite Micro / esp-tflite-micro` лишається fallback, якщо streaming integration або resource profiling покаже проблему
+
+---
+
+## Фаза 3g — `MicroFlow` INT8 input smoke test
+
+**Проблема**: попередній hardware smoke test використовував `MicroFlowFeatureExtractor::predict(...)` з public API `f32[240]`. Це підтверджувало роботу generated backend, але лишало відкрите питання, чи можна тримати production-like pipeline однорідним:
+
+```text
+MPU6050 raw -> m/s² -> WISDM z-score -> INT8 input tensor -> MicroFlow
+```
+
+**API уточнення**: local macro expansion `target/microflow-expansion.rs` показав два generated шляхи:
+
+- `predict(f32)`:
+  - приймає `Buffer4D<f32, 1, 80, 3, 1>`
+  - всередині викликає `Tensor4D::quantize(input, input_scale, input_zero_point)`
+  - виконує INT8 graph
+  - повертає dequantized `Buffer4D<f32, 1, 1, 1, 64>`
+- `predict_quantized(i8)`:
+  - приймає вже готовий `Buffer4D<i8, 1, 80, 3, 1>`
+  - створює quantized tensor через `Tensor4D::new(...)`
+  - виконує той самий INT8 graph
+  - повертає dequantized `Buffer4D<f32, 1, 1, 1, 64>`
+
+**Що зроблено**:
+
+- у [`src/inference_microflow.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference_microflow.rs:1) додано окремий quantized path:
+  - `MicroflowQuantizedInput = Buffer4D<i8, 1, 80, 3, 1>`
+  - `make_quantized_input(...)`
+  - `extract_features_quantized(&[i8; 240]) -> [f32; 64]`
+- у [`Cargo.toml`](/home/g00n3r/projects/esp32_cl_har/Cargo.toml:11) додано окремий smoke binary:
+  - `microflow_feature_quantized_smoke`
+- додано [`src/bin/microflow_feature_quantized_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/microflow_feature_quantized_smoke.rs:1):
+  - synthetic normalized input
+  - explicit quantization через `quantize_scalar(..., INPUT_SCALE, INPUT_ZERO_POINT)`
+  - один `predict_quantized(i8)` feature extraction pass
+  - latency/checksum/first features logging
+  - без sensor loop, без CL, без replay, без NVS/persistence
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --features microflow_backend --bin microflow_feature_quantized_smoke
+. $HOME/export-esp.sh && cargo run --features microflow_backend --bin microflow_feature_quantized_smoke
+```
+
+Перший non-TTY `cargo run` успішно прошив firmware, але monitor не зміг стартувати через `Failed to initialize input reader`. Повтор у TTY-режимі дав serial logs.
+
+**Build / flash result**:
+
+- build: success
+- target: `xtensa-esp32-none-elf`
+- chip: `ESP32 rev v3.1`
+- flash: `4MB`
+- app / partition size: `112,496 / 4,128,768 bytes`, тобто `2.72%`
+
+**Runtime log**:
+
+- `backend=microflow-fullconv-feature-extractor`
+- `input_shape=[1,80,3,1]`
+- `input_dtype=i8`
+- `output_shape=[1,1,1,64]`
+- `latency_us=297631`
+- `checksum=61.496418`
+- first features:
+  - `f0=3.5906632`
+  - `f1=0.05057272`
+  - `f2=0.5562999`
+  - `f3=0.40458176`
+
+**Висновок**:
+
+- `MicroFlowFeatureExtractor::predict_quantized(i8)` працює на реальній `ESP32-WROOM-32`
+- результат збігається з попереднім `f32` smoke test на тому самому synthetic input після quantization
+- для production-like Phase 3 path можна використовувати однорідний `INT8` вхід:
+
+```text
+normalized window -> i8[240] -> MicroFlow predict_quantized -> f32[64] features
+```
+
+**Рішення**:
+
+- основний embedded inference flow має йти через `predict_quantized(i8)`, не через public `f32` input
+- `predict(f32)` лишається тільки diagnostic convenience path
+- `MicroFlow` після цього кроку лишається feasible primary Rust-only candidate для frozen feature extractor; `TFLite Micro / esp-tflite-micro` лишається fallback, а не наступним обов'язковим кроком
+
+---
+
+## Фаза 3h — Housekeeping після INT8 smoke test
+
+**Що зроблено**: після quick refactor промарковано активні й неактивні smoke paths, щоб код не створював враження кількох рівнозначних production-flow.
+
+**Кодове маркування**:
+
+- [`src/bin/microflow_feature_quantized_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/microflow_feature_quantized_smoke.rs:1) позначено як активний `Phase 3` smoke для цільового flow `i8[240] -> MicroFlow predict_quantized() -> f32[64]`
+- [`src/bin/microflow_feature_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/microflow_feature_smoke.rs:1) позначено як diagnostic-only перевірку public `f32` API
+- [`src/bin/frozen_artifact_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/frozen_artifact_smoke.rs:1) позначено як archived checkpoint для перевірки read-only model artifacts
+- [`src/bin/online_layer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/online_layer_smoke.rs:1) позначено як archived `Phase 4a` checkpoint для synthetic `OnlineLayer`
+- [`src/inference.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference.rs:1) позначено як тимчасовий default stub boundary для основного sensor loop
+- [`src/inference_microflow.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference_microflow.rs:1) уточнено: `extract_features(...)` є diagnostic `f32` path, а `extract_features_quantized(...)` є цільовим Phase 3 path
+
+**Перевірка**:
+
+```bash
+cargo build
+cargo build --features microflow_backend --bin microflow_feature_quantized_smoke
+```
+
+Обидві команди виконались успішно.
+
+**Рішення**: старі smoke binaries не видалялися, бо вони є корисними reproducibility checkpoints для DEVLOG/статті. Вони лише явно відмічені як diagnostic або archived, а активний embedded inference напрям зараз один: `predict_quantized(i8)`.
+
+---
+
+## Фаза 3i — Streaming `MicroFlow` feature extraction у `main.rs`
+
+**Що зроблено**: підключено вже перевірений `MicroFlowFeatureBackend::extract_features_quantized(...)` в основний sensor loop за feature flag `microflow_backend`. Default build без feature лишається на `FrozenInferenceBackend` stub, щоб не робити `MicroFlow` обов'язковою залежністю.
+
+**Активний flow з feature flag**:
+
+```text
+MPU6050 raw accel
+-> SlidingWindow 80 samples
+-> stride 40 samples
+-> quantize_window(...)
+-> i8[240]
+-> MicroFlow predict_quantized(...)
+-> f32[64] feature tensor
+```
+
+**Межі кроку**:
+
+- без classifier head
+- без `OnlineLayer`
+- без replay
+- без UART labels
+- без NVS / persistence / runtime flash writes
+
+**Команди**:
+
+```bash
+cargo build
+cargo build --features microflow_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo run --features microflow_backend --bin esp32_cl_har
+```
+
+**Build / flash result**:
+
+- default `cargo build`: success
+- `microflow_backend` build: success
+- hardware run: success
+- chip: `ESP32 rev v3.1`
+- flash: `4MB`
+- app / partition size: `125,376 / 4,128,768 bytes`, тобто `3.04%`
+
+**Runtime observations**:
+
+- MPU6050 detected:
+  - address `0x68`
+  - `WHO_AM_I=0x70`
+- windowing спрацював після `80` samples
+- inference запускався кожні `40` samples
+- приклади runtime logs:
+  - `attempt=1`, `inference_us=299094`, `input_q0=2`, `feat0=0`, `feat1=0`, `feat2=0.10114544`, `feat3=0.5057272`
+  - `attempt=2`, `inference_us=297881`, `input_q0=-11`, `feat0=0`, `feat1=0`, `feat2=0.20229088`, `feat3=0.6068726`
+  - steady-state attempts далі трималися близько `297710 us`
+
+**Висновок**:
+
+- `MicroFlow` уже працює не лише як isolated smoke test, а й у реальному streaming sensor path
+- Phase 3 довела базову відтворюваність frozen feature extractor на ESP32
+- feature tensor `f32[64]` доступний для наступного підключення `OnlineLayer`
+
+**Важливе обмеження**:
+
+- поточний synchronous inference займає приблизно `298 ms`
+- це блокує `20 Hz` sampling на кожному inference stride і видно по часових логах після inference
+- це не ламає feasibility result, але означає, що перед фінальною CL-інтеграцією треба прийняти timing рішення:
+  - або лишити як чесний resource-limited ESP32 baseline
+  - або зменшити feature extractor
+  - або змінити scheduling / sampling policy
+
+**Рішення**: не додавати CL поверх цього одразу. Наступний крок має бути короткий Phase 3 timing/resource checkpoint: зафіксувати latency impact і вирішити, чи лишаємо `64` features, чи робимо легшу `32`-feature model variant.
+
+---
+
+## Фаза 3j — Streaming latency statistics для `MicroFlow-64`
+
+**Що зроблено**: додано lightweight latency accumulator у `main.rs` тільки для `microflow_backend` path:
+
+- `min_us`
+- `mean_us`
+- `max_us`
+- summary кожні `10` inference attempts
+
+Додаткових heap allocation, replay, CL, persistence або flash writes не додавалося.
+
+**Умови тесту**:
+
+- плата і MPU6050 лежали нерухомо
+- це правильно для latency/resource checkpoint, бо на цьому кроці вимірюється runtime, а не якість activity recognition
+- movement tests потрібні пізніше для domain-shift / qualitative sensor validation
+
+**Команди**:
+
+```bash
+cargo build
+cargo build --features microflow_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo run --features microflow_backend --bin esp32_cl_har
+```
+
+**Build / flash result**:
+
+- default build: success
+- `microflow_backend` build: success
+- app / partition size: `125,840 / 4,128,768 bytes`, тобто `3.05%`
+
+**Runtime latency result**:
+
+Після `10` attempts:
+
+- `min_us=298624`
+- `mean_us=298742`
+- `max_us=299802`
+
+Після `20` attempts:
+
+- `min_us=298620`
+- `mean_us=298683`
+- `max_us=299802`
+
+**Висновок**:
+
+- `MicroFlow-64` latency дуже стабільна: приблизно `298.7 ms` на feature extraction
+- jitter малий, але absolute latency велика для strict `20 Hz` безперервного sampling
+- inference блокує приблизно `6` sampling periods по `50 ms`
+
+**Рішення**:
+
+- `MicroFlow-64` лишається working Rust-only baseline extractor
+- перед підключенням `OnlineLayer` треба зробити hardware-aware decision:
+  - або чесно лишити `64` features як resource-limited baseline
+  - або підготувати `32`-feature variant і порівняти latency / accuracy / replay RAM
