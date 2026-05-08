@@ -405,3 +405,49 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - feature extractor ops: `CONV_2D -> CONV_2D -> AVERAGE_POOL_2D`
 
 **Висновок**: `Фаза 3.0` пройдена успішно. Для подальшої Rust integration у `Фазі 3` використовуємо саме full-conv `MicroFlow`-compatible artifacts, а не старий `Conv1D/GAP` export. Старі baseline artifacts залишаються валідними для offline baseline і статейного comparison, але не є основним deployment path для `MicroFlow`.
+
+---
+
+## Фаза 3a — Rust skeleton для inference path без runtime backend
+
+**Що зроблено**: у firmware додано мінімальний `no_std` skeleton для `Фази 3`, не змінюючи базову логіку зчитування `MPU6050` і не переходячи ще до реального inference runtime.
+
+**Додані модулі**:
+
+- `src/model.rs`
+  - shape-константи для `80x3x1` input path
+  - розміри classifier / feature extractor outputs
+  - назви artifact-ів `microflow_fullconv_*`
+- `src/window.rs`
+  - ring-buffer `SlidingWindow` на `80` семплів
+  - доступ до впорядкованих semplів без heap allocation
+- `src/quant.rs`
+  - `z-score` статистики
+  - `input_scale / input_zero_point`
+  - quantization input window
+  - dequantization feature tensor
+- `src/inference.rs`
+  - `MicroflowStub`
+  - простий API `classify()` і `extract_features()`
+  - явний `BackendUnavailable`, поки реального runtime ще немає
+
+**Що змінено в `main.rs`**:
+
+- додано `SlidingWindow`
+- додано stride-логіку `80` / `40`
+- після заповнення вікна формується quantized input tensor
+- викликається classifier stub і feature extractor stub
+- якщо backend ще не інтегрований, firmware явно логує, що спрацював skeleton path
+
+**Що це дає**:
+
+- `main.rs` уже знає про model artifacts, input shape і CL-oriented feature path
+- сенсорний loop більше не ізольований від майбутнього inference path
+- наступний крок тепер добре локалізований: замінити `MicroflowStub` на реальний runtime wrapper без повторного переписування sampling/window/quantization частини
+
+**Що ще не зроблено**:
+
+- реальний `MicroFlow` backend не інтегровано
+- `.tflite` артефакти ще не вбудовані у firmware
+- реальний forward pass ще не виконується
+- `cargo run` / hardware test не запускали

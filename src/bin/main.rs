@@ -14,10 +14,18 @@ use esp_hal::{
     main,
     time::{Duration, Instant, Rate},
 };
-use esp32_cl_har::mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050};
+use esp32_cl_har::{
+    inference::{InferenceError, MicroflowStub},
+    model::{
+        BASELINE_CLASSIFIER_ARTIFACT, FEATURE_EXTRACTOR_ARTIFACT, FEATURE_TENSOR_SIZE,
+        INPUT_TENSOR_SIZE, NUM_CLASSES, SAMPLE_RATE_HZ, WINDOW_STRIDE,
+    },
+    mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
+    quant::{dequantize_feature_tensor, quantize_window},
+    window::SlidingWindow,
+};
 use log::info;
 
-const SAMPLE_RATE_HZ: u32 = 20;
 const SAMPLE_PERIOD: Duration = Duration::from_millis(50);
 const LOG_EVERY_SAMPLES: u32 = SAMPLE_RATE_HZ;
 
@@ -99,10 +107,25 @@ fn main() -> ! {
         sensor.address(),
         who_am_i
     );
+    info!(
+        "phase 3 skeleton ready: backend={}, classifier_artifact={}, feature_artifact={}",
+        MicroflowStub::new().backend_name(),
+        BASELINE_CLASSIFIER_ARTIFACT,
+        FEATURE_EXTRACTOR_ARTIFACT,
+    );
 
     let mut next_sample_at = Instant::now() + SAMPLE_PERIOD;
     let mut sample_count: u32 = 0;
     let mut led_on = false;
+    let mut window = SlidingWindow::new();
+    let inference = MicroflowStub::new();
+    let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
+    let mut classifier_output = [0_i8; NUM_CLASSES];
+    let mut quantized_features = [0_i8; FEATURE_TENSOR_SIZE];
+    let mut dequantized_features = [0.0_f32; FEATURE_TENSOR_SIZE];
+    let mut samples_since_inference: usize = 0;
+    let mut inference_attempts: u32 = 0;
+    let mut logged_full_window = false;
 
     loop {
         busy_wait_until(next_sample_at);
@@ -112,6 +135,54 @@ fn main() -> ! {
         match sensor.read_accel(&mut i2c) {
             Ok(accel) => {
                 sample_count += 1;
+                window.push(accel.xyz);
+
+                if window.is_full() {
+                    if !logged_full_window {
+                        logged_full_window = true;
+                        info!(
+                            "window buffer ready: {} samples collected, stride={}",
+                            window.len(),
+                            WINDOW_STRIDE,
+                        );
+                    }
+
+                    samples_since_inference += 1;
+
+                    if samples_since_inference >= WINDOW_STRIDE {
+                        samples_since_inference = 0;
+                        inference_attempts += 1;
+                        quantize_window(&window, &mut quantized_input);
+
+                        let class_result =
+                            inference.classify(&quantized_input, &mut classifier_output);
+                        let feature_result =
+                            inference.extract_features(&quantized_input, &mut quantized_features);
+
+                        match (class_result, feature_result) {
+                            (Ok(()), Ok(())) => {
+                                dequantize_feature_tensor(
+                                    &quantized_features,
+                                    &mut dequantized_features,
+                                );
+                                info!(
+                                    "inference ok: attempt={}, cls_q0={}, feat_f32_0={}",
+                                    inference_attempts,
+                                    classifier_output[0],
+                                    dequantized_features[0],
+                                );
+                            }
+                            (Err(InferenceError::BackendUnavailable), _)
+                            | (_, Err(InferenceError::BackendUnavailable)) => {
+                                info!(
+                                    "inference skeleton hit backend stub: attempt={}, input_q0={}",
+                                    inference_attempts,
+                                    quantized_input[0],
+                                );
+                            }
+                        }
+                    }
+                }
 
                 if sample_count % LOG_EVERY_SAMPLES == 0 {
                     led_on = !led_on;
@@ -124,10 +195,11 @@ fn main() -> ! {
                     let loop_time_us = started_at.elapsed().as_micros();
                     let elapsed_total_us = started_at.duration_since_epoch().as_micros();
                     info!(
-                        "samples={}, t_ms={}, loop_us={}, accel=({}, {}, {})",
+                        "samples={}, t_ms={}, loop_us={}, window_len={}, accel=({}, {}, {})",
                         sample_count,
                         elapsed_total_us / 1_000,
                         loop_time_us,
+                        window.len(),
                         accel.xyz[0],
                         accel.xyz[1],
                         accel.xyz[2],
