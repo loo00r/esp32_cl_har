@@ -550,3 +550,90 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - виконано лише `cargo build`
 - результат: compile success
 - `cargo run` і hardware flashing не запускались
+
+---
+
+## Фаза 4a — Ізольований Rust `OnlineLayer`
+
+**Що зроблено**: розпочато `Фазу 4` не через інтеграцію в `main.rs`, а через ізольований trainable head модуль у чистому Rust. Це свідомо не закриває `Фазу 3` і не чіпає frozen inference backend, а готує ту частину системи, яка і є ядром нашої новизни.
+
+**Додано**:
+
+- [`src/online_layer.rs`](/home/g00n3r/projects/esp32_cl_har/src/online_layer.rs:1)
+  - `OnlineLayer { weights[[64][6]], bias[6] }`
+  - `forward_logits()`
+  - `forward()` з локальною `softmax`
+  - `backward_batch()` для mini-batch update
+- експорт модуля через [`src/lib.rs`](/home/g00n3r/projects/esp32_cl_har/src/lib.rs:1)
+
+**Що це дає**:
+
+- CL trainable head більше не залежить від frozen inference backend
+- логіку `64 -> 6` уже можна перевіряти і розвивати окремо
+- наступним кроком можна робити `ReplayBuffer` таким самим ізольованим шляхом, без змішування з runtime integration
+
+**Перевірка**:
+
+- виконано лише `cargo build`
+- результат: compile success
+- `cargo run` і hardware flashing не запускались
+
+**Примітка**: модуль поки не інтегровано в основний loop. Це саме `Фаза 4a`, а не повна `Фаза 4`.
+
+---
+
+## Фаза 4a.2 — Embedded smoke test binary для `OnlineLayer`
+
+**Що зроблено**: перед переходом до `ReplayBuffer` додано окремий embedded smoke-test binary для перевірки `OnlineLayer` вже в MCU-контексті, але без frozen inference backend, без сенсора і без будь-яких runtime flash writes.
+
+**Додано**:
+
+- [`src/bin/online_layer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/online_layer_smoke.rs:1)
+  - hardcoded synthetic `features[64]`
+  - `OnlineLayer.forward()`
+  - `OnlineLayer.backward_batch()`
+  - логування `forward` / `backward` latency
+  - перевірка, що вихід після update змінюється
+  - простий LED heartbeat
+
+**Навіщо це потрібно**:
+
+- не переходити одразу до `ReplayBuffer` і повної `Фази 4`, не перевіривши, що `f32`-логіка trainable head взагалі стабільно збирається і готова до першого hardware smoke test
+- відокремити CL head verification від frozen inference backend decision
+- зберегти порядок маленьких перевіряємих кроків під `ESP32-WROOM-32`
+
+**Перевірка**:
+
+- виконано лише `cargo build`
+- результат: compile success
+- `cargo run`, flashing і runtime-перевірка на підключеній платі поки не виконувались
+
+**Примітка**: це саме підготовка до `embedded smoke test`, а не повна інтеграція `OnlineLayer` у firmware loop.
+
+---
+
+## Фаза 4a.3 — Embedded smoke test `OnlineLayer` на ESP32
+
+**Що зроблено**: виконано перший реальний hardware smoke test для [`src/bin/online_layer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/online_layer_smoke.rs:1) на підключеній `ESP32-WROOM-32`.
+
+**Що перевірено**:
+
+- `cargo run --bin online_layer_smoke` успішно прошив плату через `espflash`
+- boot пройшов штатно
+- firmware почав серійне логування без `panic`, `reset` або watchdog-симптомів
+- `OnlineLayer.forward()` і `OnlineLayer.backward_batch()` реально виконуються на MCU
+
+**Спостереження з логів**:
+
+- типові `forward` latency: близько `94–95 us`
+- типові `backward_batch` latency: близько `243–247 us`
+- вихід після `backward_batch()` змінювався між ітераціями, тобто update path реально працює
+- LED heartbeat також працював, тобто main loop лишався живим
+
+**Що це означає**:
+
+- `f32`-логіка trainable head для `64 -> 6` уже не лише компілюється, а й реально виконується на `ESP32`
+- можна переходити до наступного ізольованого CL-модуля, не боячись, що сам `OnlineLayer` принципово не підходить для MCU
+- це все ще не інтеграція з frozen feature extractor і не повна `Фаза 4`, а саме підтвердження життєздатності CL head на залізі
+
+**Примітка**: smoke test використовував synthetic `features[64]`, без сенсора, без inference backend і без runtime flash writes. Це був навмисно мінімальний hardware checkpoint перед `ReplayBuffer`.
