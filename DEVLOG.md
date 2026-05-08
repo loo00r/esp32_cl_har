@@ -391,3 +391,17 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 **Статус**: compatibility gate ще не закрито остаточно. Наступний крок — повторити training/export для `MicroFlow`-friendly моделі й ще раз перевірити список ops. Лише після clean graph можна переходити до Rust integration у `Фазі 3`.
 
 **Оновлення після повторної перевірки**: `Flatten` не прибрав службові ops `SHAPE`, `STRIDED_SLICE`, `PACK` і `RESHAPE`. Тому `MicroFlow`-гілку далі спрощено до full-conv варіанту без переходу `4D tensor -> vector`: classifier head тепер планується як `Conv2D(6, 1x1) + Softmax`, а feature extractor віддає `1x1x64` tensor. Це не змінює baseline path і не зачіпає вже завершену `Фазу 2`, а лише додає окремий deployment-oriented export path для `Фази 3.0`.
+
+**Фінальний результат compatibility gate**: full-conv export path дав clean `MicroFlow`-friendly op graphs без службових `SHAPE/STRIDED_SLICE/PACK/RESHAPE`.
+
+- classifier artifact: `/tmp/esp32_cl_har_artifacts/microflow_fullconv_classifier_int8.tflite`
+- classifier input: `[1, 80, 3, 1]`
+- classifier output: `[1, 1, 1, 6]`
+- classifier ops: `CONV_2D -> CONV_2D -> AVERAGE_POOL_2D -> CONV_2D -> SOFTMAX`
+
+- feature extractor artifact: `/tmp/esp32_cl_har_artifacts/microflow_fullconv_feature_extractor_int8.tflite`
+- feature extractor input: `[1, 80, 3, 1]`
+- feature extractor output: `[1, 1, 1, 64]`
+- feature extractor ops: `CONV_2D -> CONV_2D -> AVERAGE_POOL_2D`
+
+**Висновок**: `Фаза 3.0` пройдена успішно. Для подальшої Rust integration у `Фазі 3` використовуємо саме full-conv `MicroFlow`-compatible artifacts, а не старий `Conv1D/GAP` export. Старі baseline artifacts залишаються валідними для offline baseline і статейного comparison, але не є основним deployment path для `MicroFlow`.
