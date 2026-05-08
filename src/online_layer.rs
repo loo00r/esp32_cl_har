@@ -1,21 +1,24 @@
-use crate::model::{FEATURE_TENSOR_SIZE, NUM_CLASSES};
+use crate::model::{FEATURE_TENSOR_SIZE, MICROFLOW32_FEATURE_TENSOR_SIZE, NUM_CLASSES};
 use libm::expf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct OnlineLayer {
-    pub weights: [[f32; NUM_CLASSES]; FEATURE_TENSOR_SIZE],
+pub struct OnlineLayer<const D: usize> {
+    pub weights: [[f32; NUM_CLASSES]; D],
     pub bias: [f32; NUM_CLASSES],
 }
 
-impl OnlineLayer {
+pub type OnlineLayer64 = OnlineLayer<FEATURE_TENSOR_SIZE>;
+pub type OnlineLayer32 = OnlineLayer<MICROFLOW32_FEATURE_TENSOR_SIZE>;
+
+impl<const D: usize> OnlineLayer<D> {
     pub const fn new() -> Self {
         Self {
-            weights: [[0.0; NUM_CLASSES]; FEATURE_TENSOR_SIZE],
+            weights: [[0.0; NUM_CLASSES]; D],
             bias: [0.0; NUM_CLASSES],
         }
     }
 
-    pub fn forward_logits(&self, features: &[f32; FEATURE_TENSOR_SIZE]) -> [f32; NUM_CLASSES] {
+    pub fn forward_logits(&self, features: &[f32; D]) -> [f32; NUM_CLASSES] {
         let mut logits = self.bias;
         for (feature_idx, &feature_value) in features.iter().enumerate() {
             for (class_idx, logit) in logits.iter_mut().enumerate() {
@@ -25,13 +28,13 @@ impl OnlineLayer {
         logits
     }
 
-    pub fn forward(&self, features: &[f32; FEATURE_TENSOR_SIZE]) -> [f32; NUM_CLASSES] {
+    pub fn forward(&self, features: &[f32; D]) -> [f32; NUM_CLASSES] {
         softmax(self.forward_logits(features))
     }
 
     pub fn backward_batch(
         &mut self,
-        batch: &[[f32; FEATURE_TENSOR_SIZE]],
+        batch: &[[f32; D]],
         labels: &[u8],
         lr: f32,
     ) {
@@ -40,7 +43,7 @@ impl OnlineLayer {
         }
 
         let inv_batch = 1.0 / batch.len() as f32;
-        let mut grad_w = [[0.0; NUM_CLASSES]; FEATURE_TENSOR_SIZE];
+        let mut grad_w = [[0.0; NUM_CLASSES]; D];
         let mut grad_b = [0.0; NUM_CLASSES];
 
         for (features, &label) in batch.iter().zip(labels.iter()) {
@@ -55,7 +58,7 @@ impl OnlineLayer {
                 grad_b[class_idx] += delta[class_idx];
             }
 
-            for feature_idx in 0..FEATURE_TENSOR_SIZE {
+            for feature_idx in 0..D {
                 let feature_value = features[feature_idx];
                 for class_idx in 0..NUM_CLASSES {
                     grad_w[feature_idx][class_idx] += feature_value * delta[class_idx];
@@ -63,7 +66,7 @@ impl OnlineLayer {
             }
         }
 
-        for feature_idx in 0..FEATURE_TENSOR_SIZE {
+        for feature_idx in 0..D {
             for class_idx in 0..NUM_CLASSES {
                 self.weights[feature_idx][class_idx] -= lr * grad_w[feature_idx][class_idx] * inv_batch;
             }
@@ -105,8 +108,8 @@ pub fn softmax(logits: [f32; NUM_CLASSES]) -> [f32; NUM_CLASSES] {
 mod tests {
     use super::*;
 
-    fn one_hot_like_features(scale: f32) -> [f32; FEATURE_TENSOR_SIZE] {
-        let mut features = [0.0; FEATURE_TENSOR_SIZE];
+    fn one_hot_like_features<const D: usize>(scale: f32) -> [f32; D] {
+        let mut features = [0.0; D];
         features[0] = scale;
         features[1] = scale * 0.5;
         features[2] = scale * 0.25;
@@ -115,7 +118,7 @@ mod tests {
 
     #[test]
     fn forward_outputs_probabilities() {
-        let layer = OnlineLayer::new();
+        let layer = OnlineLayer64::new();
         let probs = layer.forward(&[0.0; FEATURE_TENSOR_SIZE]);
         let total: f32 = probs.iter().sum();
         assert!((total - 1.0).abs() < 1e-4);
@@ -126,8 +129,11 @@ mod tests {
 
     #[test]
     fn backward_batch_updates_weights() {
-        let mut layer = OnlineLayer::new();
-        let batch = [one_hot_like_features(1.0), one_hot_like_features(0.8)];
+        let mut layer = OnlineLayer64::new();
+        let batch = [
+            one_hot_like_features::<FEATURE_TENSOR_SIZE>(1.0),
+            one_hot_like_features::<FEATURE_TENSOR_SIZE>(0.8),
+        ];
         let labels = [0_u8, 0_u8];
 
         let before = layer.weights[0][0];
@@ -139,8 +145,8 @@ mod tests {
 
     #[test]
     fn repeated_training_improves_target_class_probability() {
-        let mut layer = OnlineLayer::new();
-        let sample = one_hot_like_features(1.0);
+        let mut layer = OnlineLayer64::new();
+        let sample = one_hot_like_features::<FEATURE_TENSOR_SIZE>(1.0);
         let before = layer.forward(&sample)[0];
 
         let batch = [sample];
@@ -151,5 +157,13 @@ mod tests {
 
         let after = layer.forward(&sample)[0];
         assert!(after > before);
+    }
+
+    #[test]
+    fn online_layer32_forward_outputs_probabilities() {
+        let layer = OnlineLayer32::new();
+        let probs = layer.forward(&[0.0; MICROFLOW32_FEATURE_TENSOR_SIZE]);
+        let total: f32 = probs.iter().sum();
+        assert!((total - 1.0).abs() < 1e-4);
     }
 }

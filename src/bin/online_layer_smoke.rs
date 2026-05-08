@@ -13,7 +13,7 @@ use esp_hal::{
 };
 use esp32_cl_har::{
     model::{CLASS_LABELS, FEATURE_TENSOR_SIZE},
-    online_layer::OnlineLayer,
+    online_layer::OnlineLayer64,
 };
 use log::info;
 
@@ -68,7 +68,7 @@ fn main() -> ! {
     let peripherals = init();
     let mut led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
 
-    let mut layer = OnlineLayer::new();
+    let mut layer = OnlineLayer64::new();
     let sample_a = synthetic_features(0.25);
     let sample_b = synthetic_features(-0.10);
     let batch = [sample_a, sample_b];

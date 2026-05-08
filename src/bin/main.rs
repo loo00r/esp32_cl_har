@@ -30,6 +30,10 @@ use esp32_cl_har::{
 use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
 use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowFeatureBackend;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::model::CLASS_LABELS;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::online_layer::OnlineLayer32;
 use log::info;
 
 const SAMPLE_PERIOD: Duration = Duration::from_millis(50);
@@ -57,6 +61,21 @@ fn busy_wait(duration: Duration) {
 
 fn busy_wait_until(deadline: Instant) {
     while Instant::now() < deadline {}
+}
+
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+fn argmax(values: &[f32]) -> usize {
+    let mut best_idx = 0;
+    let mut best_value = values[0];
+    let mut idx = 1;
+    while idx < values.len() {
+        if values[idx] > best_value {
+            best_value = values[idx];
+            best_idx = idx;
+        }
+        idx += 1;
+    }
+    best_idx
 }
 
 fn probe_sensor<'d>(
@@ -130,6 +149,8 @@ fn main() -> ! {
     let inference = FrozenInferenceBackend::new();
     #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let inference = MicroflowFeatureBackend::new();
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let online_layer = OnlineLayer32::new();
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
     #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut classifier_output = [0_i8; NUM_CLASSES];
@@ -193,6 +214,23 @@ fn main() -> ! {
                                 features[2],
                                 features[3],
                             );
+
+                            #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+                            {
+                                let online_started = Instant::now();
+                                let probs = online_layer.forward(&features);
+                                let online_us = online_started.elapsed().as_micros();
+                                let predicted_idx = argmax(&probs);
+
+                                info!(
+                                    "online32 forward ok: attempt={}, online_us={}, pred={}({}), confidence={}",
+                                    inference_attempts,
+                                    online_us,
+                                    predicted_idx,
+                                    CLASS_LABELS[predicted_idx],
+                                    probs[predicted_idx],
+                                );
+                            }
 
                             if inference_attempts % LATENCY_REPORT_EVERY_ATTEMPTS == 0 {
                                 let latency_mean_us = latency_sum_us / u64::from(inference_attempts);

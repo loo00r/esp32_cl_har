@@ -1508,3 +1508,87 @@ xtensa-esp32-elf-size target/xtensa-esp32-none-elf/release/esp32_cl_har
 
 - перейти до `OnlineLayer32` forward-only integration поверх `MicroFlow-32` features
 - не додавати replay, SGD update, UART labels або persistence до окремого forward-only checkpoint
+
+## Фаза 4a.5 — `OnlineLayer32` forward-only integration поверх `MicroFlow-32`
+
+**Що зроблено**: продовжено вже наявну `OnlineLayer` роботу не через новий модуль, а через узгодження з основним embedded path. Після Phase 3 основним frozen extractor candidate став `MicroFlow-32`, тому `OnlineLayer` переведено з hardcoded `64` features на const-generic dimension і додано alias-и:
+
+```rust
+OnlineLayer64 = OnlineLayer<64>
+OnlineLayer32 = OnlineLayer<32>
+```
+
+**Зміни в коді**:
+
+- [`src/online_layer.rs`](/home/g00n3r/projects/esp32_cl_har/src/online_layer.rs:1)
+  - `OnlineLayer<const D: usize>`
+  - `forward_logits()`, `forward()`, `backward_batch()` тепер працюють з `[f32; D]`
+  - додано `OnlineLayer32` для `MicroFlow-32` features
+- [`src/bin/online_layer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/online_layer_smoke.rs:1)
+  - smoke test явно лишено як archived `OnlineLayer64` synthetic checkpoint
+- [`src/bin/main.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/main.rs:1)
+  - під `microflow32_backend` додано forward-only path:
+
+```text
+MPU6050
+-> SlidingWindow 80x3
+-> quantize_window()
+-> MicroFlow-32 feature extractor
+-> OnlineLayer32.forward()
+-> class/confidence log
+```
+
+**Межі кроку**:
+
+- без replay
+- без SGD/update у main loop
+- без UART labels
+- без persistence/NVS/flash writes
+- `OnlineLayer32` поки zero-initialized, тому `confidence=0.16666667` є очікуваним uniform sanity output, не activity-recognition accuracy
+
+**Команди**:
+
+```bash
+cargo build --bin esp32_cl_har
+cargo build --features microflow32_backend --bin esp32_cl_har
+cargo build --bin online_layer_smoke
+. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har
+```
+
+**Build result**:
+
+- default firmware build: success
+- `microflow32_backend` firmware build: success
+- archived `online_layer_smoke` build: success
+- `cargo test --lib` не використовується як валідний check для цього bare-metal target: `xtensa-esp32-none-elf` не має стандартного `test` crate/panic handler setup
+
+**Hardware run result**:
+
+- flash: success
+- app / partition size: `126,480 / 4,128,768 bytes`, тобто `3.06%`
+- `MicroFlow-32` inference continued to run in streaming path
+- observed feature extraction latency: approximately `172.9–173.9 ms`
+- `OnlineLayer32.forward()` latency:
+  - first observed call: `110 us`
+  - steady calls: approximately `49–51 us`
+
+Example log:
+
+```text
+microflow feature ok: attempt=1, inference_us=173947, input_q0=2, feat0=0, feat1=0.07324092, feat2=5.493069, feat3=0.36620462
+online32 forward ok: attempt=1, online_us=110, pred=0(Walking), confidence=0.16666667
+microflow feature ok: attempt=2, inference_us=172873, input_q0=2, feat0=0, feat1=0.07324092, feat2=5.493069, feat3=0.36620462
+online32 forward ok: attempt=2, online_us=50, pred=0(Walking), confidence=0.16666667
+```
+
+**Висновок**:
+
+- `MicroFlow-32 -> OnlineLayer32.forward()` стикується і працює на реальній ESP32
+- forward-only `OnlineLayer32` cost малий порівняно з frozen extractor latency
+- цей крок не доводить HAR accuracy, бо head ще не має pretrained/adapted weights
+
+**Наступний крок**:
+
+- підготувати pretrained `OnlineLayer32` weights з `MicroFlow-32` classifier head або окремий offline-trained `32 -> 6` head
+- тільки після цього оцінювати meaningful class/confidence logs
+- replay/SGD/UART/persistence не додавати до завершення pretrained-head checkpoint
