@@ -22,6 +22,11 @@ name = "microflow_feature_quantized_smoke"
 path = "./src/bin/microflow_feature_quantized_smoke.rs"
 required-features = ["microflow_backend"]
 
+[[bin]]
+name = "microflow32_consistency_smoke"
+path = "./src/bin/microflow32_consistency_smoke.rs"
+required-features = ["microflow32_backend"]
+
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]

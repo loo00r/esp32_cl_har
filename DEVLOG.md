@@ -1259,3 +1259,93 @@ cargo build --features microflow32_backend --bin esp32_cl_har
 - `MicroFlow-64` лишається stronger baseline/reference
 - `MicroFlow-32` стає практичним основним кандидатом для подальшого ESP32 CL path
 - наступний крок перед `OnlineLayer`: зафіксувати feature-dim як compile-time параметр або підготувати `OnlineLayer32`, не змішуючи `32` і `64` шляхи в одному runtime
+
+---
+
+## Фаза 3n — PC TFLite vs ESP MicroFlow-32 consistency
+
+**Що зроблено**: перевірено, що `MicroFlow-32` на ESP32 рахує той самий exported `.tflite` artifact, що й Python/TensorFlow Lite interpreter на PC. GPU не використовувався; це CPU-side TFLite reference check.
+
+**Input**:
+
+- deterministic `int8[240]`
+- той самий synthetic pattern, що в попередніх smoke tests:
+
+```text
+normalized[i] = i * 0.0125 - 1.0
+quantized[i] = round(normalized[i] / input_scale) + input_zero_point
+```
+
+- input scale: `0.030599215999245644`
+- input zero point: `9`
+- first input values:
+
+```text
+[-24, -23, -23, -22, -22, -22, -21, -21]
+```
+
+**PC reference command**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python - <<'PY'
+# TensorFlow Lite Interpreter over src/model_artifacts/microflow_fullconv32_feature_extractor_int8.tflite
+PY
+```
+
+**PC TFLite result**:
+
+- model: `src/model_artifacts/microflow_fullconv32_feature_extractor_int8.tflite`
+- output shape: `[1, 1, 1, 32]`
+- output dtype: `int8`
+- output quantization:
+  - scale: `0.07324092090129852`
+  - zero point: `-128`
+- output quantized first8:
+
+```text
+[-127, -106, -71, -112, -95, -98, -126, -119]
+```
+
+- dequantized checksum:
+
+```text
+45.55585479736328
+```
+
+- dequantized first8:
+
+```text
+[0.07324092, 1.61130023, 4.17473269, 1.17185473,
+ 2.41695046, 2.19722772, 0.14648184, 0.65916830]
+```
+
+**ESP32 command**:
+
+```bash
+. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin microflow32_consistency_smoke
+```
+
+**ESP32 MicroFlow result**:
+
+- app / partition size: `111,488 / 4,128,768 bytes`, тобто `2.70%`
+- backend: `microflow-fullconv32-feature-extractor`
+- output shape: `[1, 1, 1, 32]`
+- latency: `173037 us`
+- checksum:
+
+```text
+45.55585
+```
+
+- first8:
+
+```text
+[0.07324092, 1.6113002, 4.1747327, 1.1718547,
+ 2.4169505, 2.1972277, 0.14648184, 0.6591683]
+```
+
+**Висновок**:
+
+- PC TFLite і ESP MicroFlow-32 outputs збігаються в межах очікуваного float formatting
+- це підтверджує, що ESP32 рахує саме exported TFLite artifact, а не просто повертає довільні features
+- `MicroFlow-32` можна використовувати як основний frozen feature extractor candidate для наступного `OnlineLayer` integration
