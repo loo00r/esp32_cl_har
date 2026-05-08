@@ -1592,3 +1592,85 @@ online32 forward ok: attempt=2, online_us=50, pred=0(Walking), confidence=0.1666
 - підготувати pretrained `OnlineLayer32` weights з `MicroFlow-32` classifier head або окремий offline-trained `32 -> 6` head
 - тільки після цього оцінювати meaningful class/confidence logs
 - replay/SGD/UART/persistence не додавати до завершення pretrained-head checkpoint
+
+## Фаза 4a.6 — Pretrained `OnlineLayer32` head з `MicroFlow-32` classifier artifact
+
+**Що зроблено**: `OnlineLayer32` перестав бути zero-initialized sanity head. Ваги і bias відновлено з quantized `1x1 Conv2D` шару `classifier_head` у `microflow_fullconv32_classifier_int8.tflite` і перенесено в Rust як f32-equivalent `32 -> 6` head.
+
+Це не нове навчання і не зміна архітектури. Це розділення вже навченого full-conv classifier artifact на:
+
+```text
+MicroFlow-32 frozen feature extractor: 80x3x1 -> 1x1x1x32
+Rust OnlineLayer32 pretrained head:   32 -> 6
+```
+
+**Джерело weights**:
+
+- classifier artifact: [`src/model_artifacts/microflow_fullconv32_classifier_int8.tflite`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv32_classifier_int8.tflite)
+- metadata: [`src/model_artifacts/microflow_fullconv32_classifier_int8_metadata.json`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv32_classifier_int8_metadata.json)
+- head tensor у TFLite:
+  - weights tensor shape: `[6, 1, 1, 32]`
+  - bias tensor shape: `[6]`
+  - feature input tensor scale: `0.07324092090129852`
+
+**Зміни в коді**:
+
+- [`src/online_layer.rs`](/home/g00n3r/projects/esp32_cl_har/src/online_layer.rs:1)
+  - додано `MICROFLOW32_HEAD_WEIGHTS`
+  - додано `MICROFLOW32_HEAD_BIAS`
+  - додано `OnlineLayer32::new_microflow32_pretrained()`
+- [`src/bin/main.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/main.rs:1)
+  - main streaming path тепер створює `OnlineLayer32::new_microflow32_pretrained()`
+- [`src/model.rs`](/home/g00n3r/projects/esp32_cl_har/src/model.rs:1)
+  - додано `MICROFLOW32_CLASSIFIER_ARTIFACT`
+
+**Команди**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python - <<'PY'
+# inspected TFLite tensors and converted INT8 classifier_head to f32-equivalent weights
+PY
+
+cargo build --features microflow32_backend --bin esp32_cl_har
+cargo build --bin esp32_cl_har
+cargo build --bin online_layer_smoke
+. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har
+espflash monitor --chip esp32 --port /dev/ttyUSB0 --non-interactive --elf target/xtensa-esp32-none-elf/debug/esp32_cl_har
+```
+
+**Build result**:
+
+- default firmware build: success
+- `microflow32_backend` firmware build: success
+- archived `online_layer_smoke` build: success
+
+**Hardware result**:
+
+- flash: success
+- app / partition size: `126,512 / 4,128,768 bytes`, тобто `3.06%`
+- `espflash flash --monitor` повторно мав monitor-side issue `Failed to initialize input reader`, тому логи знято окремим `espflash monitor`
+- `MicroFlow-32` inference still stable: approximately `172.8–174.0 ms`
+- `OnlineLayer32.forward()` з pretrained head:
+  - first observed call: `161 us`
+  - steady calls: approximately `97 us`
+
+Example log:
+
+```text
+microflow feature ok: attempt=1, inference_us=173957, input_q0=2, feat0=0, feat1=0.07324092, feat2=5.493069, feat3=0.36620462
+online32 forward ok: attempt=1, online_us=161, pred=4(Sitting), confidence=0.9944524
+microflow feature ok: attempt=2, inference_us=172868, input_q0=2, feat0=0, feat1=0.07324092, feat2=5.493069, feat3=0.36620462
+online32 forward ok: attempt=2, online_us=97, pred=4(Sitting), confidence=0.9944524
+```
+
+**Висновок**:
+
+- end-to-end inference-only path тепер дає meaningful class/confidence, а не uniform sanity output
+- stationary MPU6050 window predict-иться як `Sitting` з confidence приблизно `0.994`, що узгоджується з нерухомим сенсором
+- cost pretrained `OnlineLayer32.forward()` малий порівняно з `MicroFlow-32` feature extraction
+- це все ще не CL/adaptation: replay, SGD update у main loop, UART labels і persistence не додавались
+
+**Наступний крок**:
+
+- зробити short movement sanity run: нерухомо / легке переміщення / ходьба з платою в руці, без training
+- потім переходити до `ReplayBuffer32` як ізольованого модуля або до supervised-label input тільки після рішення по protocol

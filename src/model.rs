@@ -25,6 +25,7 @@ pub const CLASS_LABELS: [&str; NUM_CLASSES] = [
 
 pub const BASELINE_CLASSIFIER_ARTIFACT: &str = "microflow_fullconv_classifier_int8.tflite";
 pub const FEATURE_EXTRACTOR_ARTIFACT: &str = "microflow_fullconv_feature_extractor_int8.tflite";
+pub const MICROFLOW32_CLASSIFIER_ARTIFACT: &str = "microflow_fullconv32_classifier_int8.tflite";
 pub const MICROFLOW32_FEATURE_EXTRACTOR_ARTIFACT: &str =
     "microflow_fullconv32_feature_extractor_int8.tflite";
 

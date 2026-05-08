@@ -150,7 +150,7 @@ fn main() -> ! {
     #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let inference = MicroflowFeatureBackend::new();
     #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let online_layer = OnlineLayer32::new();
+    let online_layer = OnlineLayer32::new_microflow32_pretrained();
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
     #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut classifier_output = [0_i8; NUM_CLASSES];
@@ -327,7 +327,7 @@ fn phase3_classifier_artifact_name() -> &'static str {
 
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
 fn phase3_classifier_artifact_name() -> &'static str {
-    "microflow_fullconv32_classifier_int8.tflite"
+    esp32_cl_har::model::MICROFLOW32_CLASSIFIER_ARTIFACT
 }
 
 #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]

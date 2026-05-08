@@ -1,0 +1,50 @@
+{
+  "model_name": "microflow_fullconv32_classifier_int8",
+  "window_size": 80,
+  "step_size": 40,
+  "feature_columns": [
+    "x",
+    "y",
+    "z"
+  ],
+  "activity_order": [
+    "Walking",
+    "Jogging",
+    "Upstairs",
+    "Downstairs",
+    "Sitting",
+    "Standing"
+  ],
+  "input_shape": [
+    1,
+    80,
+    3,
+    1
+  ],
+  "output_shape": [
+    1,
+    1,
+    1,
+    6
+  ],
+  "input_dtype": "<class 'numpy.int8'>",
+  "output_dtype": "<class 'numpy.int8'>",
+  "input_scale": 0.030599215999245644,
+  "input_zero_point": 9,
+  "output_scale": 0.00390625,
+  "output_zero_point": -128,
+  "zscore_means": {
+    "x": 0.6641130377295048,
+    "y": 7.24604496629975,
+    "z": 0.3976974159793533
+  },
+  "zscore_stds": {
+    "x": 6.876277399101241,
+    "y": 6.739789164778392,
+    "z": 4.761111221236647
+  },
+  "representative_samples": 192,
+  "microflow_feature_dim": 32,
+  "artifact_role": "baseline_classifier",
+  "ablation": "microflow32"
+}
