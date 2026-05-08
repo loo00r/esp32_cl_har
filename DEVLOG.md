@@ -670,3 +670,143 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - ізольований Rust `OnlineLayer` тепер не лише виконується на `ESP32`, а й демонструє чисельно стабільніший update path
 - це достатній stopping point для `Фази 4a`
 - наступним кроком уже можна повертатись до планового рішення: не лізти одразу в повну `Фазу 4`, а повернутись до `Фази 3` practical frozen inference backend
+
+---
+
+## Фаза 3f — Bounded feasibility gate для `MicroFlow` як frozen feature extractor backend
+
+**Що зроблено**: виконано окрему bounded feasibility перевірку `MicroFlow` не як ядра проєкту, а лише як можливого Rust-only backend для frozen feature extractor. Головну research-архітектуру не змінювали.
+
+**Перевірений model path**:
+
+- старий baseline artifact лишився доступним поза git:
+  - `/tmp/esp32_cl_har_artifacts/baseline_cnn_int8.tflite`
+- у репозиторії використано вже підготовлений full-conv deployment variant:
+  - [`src/model_artifacts/microflow_fullconv_classifier_int8.tflite`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv_classifier_int8.tflite:1)
+  - [`src/model_artifacts/microflow_fullconv_feature_extractor_int8.tflite`](/home/g00n3r/projects/esp32_cl_har/src/model_artifacts/microflow_fullconv_feature_extractor_int8.tflite:1)
+- для bounded gate обрано саме feature extractor `80x3x1 -> 1x1x1x64`, без replay, без CL loop, без змін в основному `main.rs`
+
+**Перевірка TFLite ops**:
+
+- `microflow_fullconv_classifier_int8.tflite`:
+  - `CONV_2D`
+  - `CONV_2D`
+  - `AVERAGE_POOL_2D`
+  - `CONV_2D`
+  - `SOFTMAX`
+- `microflow_fullconv_feature_extractor_int8.tflite`:
+  - `CONV_2D`
+  - `CONV_2D`
+  - `AVERAGE_POOL_2D`
+- старий `baseline_cnn_int8.tflite` для порівняння все ще містить несумісні з `MicroFlow` службові ops:
+  - `EXPAND_DIMS`
+  - `RESHAPE`
+  - `MEAN`
+
+**Висновок по graph compatibility**:
+
+- full-conv feature extractor graph чистий і підходить для bounded `MicroFlow`-перевірки
+- переписувати notebook/model pipeline далі не потрібно
+
+**API finding по `MicroFlow`**:
+
+локальний source `microflow-macros` показав точний generated contract:
+
+- `predict(input: Buffer4D<f32, ...>) -> Buffer4D<f32, ...>`
+- `predict_quantized(input: Buffer4D<i8, ...>) -> Buffer4D<f32, ...>`
+- всередині generated code:
+  - `predict()` робить `Tensor4D::quantize(...)`
+  - `predict_quantized()` створює `Tensor4D::new(...)`
+  - далі `predict_inner(...)`
+  - результат завжди повертається через `.dequantize()`
+
+**Що це означає practically**:
+
+- public API `MicroFlow` для нашого кейсу не є raw-`int8`-only
+- `f32` на межі API — це очікувана поведінка бібліотеки, а не ознака поломки quantized path
+- quantized inference все одно виконується всередині runtime
+
+**Кодова ізоляція**:
+
+- у [`Cargo.toml`](/home/g00n3r/projects/esp32_cl_har/Cargo.toml:1) додано optional feature:
+  - `microflow_backend`
+- `MicroFlow` не став обов'язковою залежністю default build
+- додано окремий модуль [`src/inference_microflow.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference_microflow.rs:1)
+  - `MicroflowFeatureBackend`
+  - `extract_features(&[f32; 240]) -> [f32; 64]`
+- додано окремий prepared smoke binary [`src/bin/microflow_feature_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/microflow_feature_smoke.rs:1)
+  - synthetic normalized input
+  - один feature extraction pass
+  - checksum / first features / latency logging
+  - не інтегровано в `main.rs`
+
+**Build checks**:
+
+- `cargo build --offline` -> success
+- `cargo build --release --features microflow_backend --bin microflow_feature_smoke --offline` -> success
+
+**Resource / size findings**:
+
+- `microflow_feature_smoke` (`release`):
+  - `text = 41657`
+  - `data = 532`
+  - `bss = 176`
+  - `dec = 238265`
+  - `.rodata = 10448`
+- для порівняння `frozen_artifact_smoke` (`release`):
+  - `text = 55365`
+  - `data = 604`
+  - `bss = 176`
+  - `dec = 251973`
+  - `.rodata = 29676`
+
+**Інтерпретація**:
+
+- bounded `MicroFlow` candidate компілюється під наш `xtensa-esp32-none-elf` target
+- default path не ламається
+- явного `std` blocker на build-рівні нема
+- але dependency surface суттєво важчий, ніж здається з одного `microflow` crate:
+  - `microflow`
+  - `microflow-macros`
+  - `nalgebra`
+  - `simba`
+  - `flatbuffers` та супутній proc-macro stack
+- generated code використовує `nalgebra` напряму, тому для навіть ізольованого candidate path довелося додати `nalgebra` як optional direct dependency
+
+**Hardware smoke test**:
+
+- виконано `cargo run --features microflow_backend --bin microflow_feature_smoke`
+- плата: `ESP32-WROOM-32`, chip revision `v3.1`, flash `4MB`
+- app / partition size з `espflash`: `112,896 / 4,128,768 bytes`, тобто `2.73%`
+- boot пройшов штатно
+- `MicroFlow` feature extractor виконав один inference pass без `panic`, reset або watchdog symptoms
+
+**Runtime log**:
+
+- `backend=microflow-fullconv-feature-extractor`
+- `latency_us=298204`
+- `checksum=61.496418`
+- first features:
+  - `f0=3.5906632`
+  - `f1=0.05057272`
+  - `f2=0.5562999`
+  - `f3=0.40458176`
+
+**Оновлене рішення після hardware smoke test**:
+
+- `MicroFlow` більше не `uncertain` на рівні feasibility
+- clean ops, build success, acceptable static footprint і one-shot runtime на реальній ESP32 підтверджені
+- класифікація зараз:
+  - **A) MicroFlow feasible candidate**
+
+**Обмеження рішення**:
+
+- це ще не повна інтеграція в основний `main.rs`
+- це ще не streaming sensor loop
+- це ще не перевірка latency на реальному MPU6050 window
+- dependency/API surface все ще складніший, ніж у власного простого Rust-модуля, тому `MicroFlow` лишається backend candidate, а не scientific contribution
+
+**Рекомендація**:
+
+- наступний practical крок: підключити `MicroFlowFeatureBackend` до існуючого `FrozenInferenceBackend` boundary або окремого Phase 3 path, але без зміни CL-архітектури
+- `TFLite Micro / esp-tflite-micro` лишається fallback, якщо streaming integration або resource profiling покаже проблему
