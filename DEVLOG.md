@@ -505,3 +505,48 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - `mismatch_count = 0`
 
 **Висновок**: поточний Rust path для `SlidingWindow -> quantize_window()` узгоджений із Python/TFLite preprocessing як по scale, так і по flat layout. Це знімає найбільш небезпечний ризик перед інтеграцією реального inference backend: що модель отримувала б правильний graph, але неправильний input distribution або переплутаний tensor order.
+
+---
+
+## Фаза 3d — Рішення по inference runtime без оверінженірингу
+
+**Що вирішено**: після чистого проходження `MicroFlow` compatibility gate ми свідомо не зробили `MicroFlow` core deployment path. Причина не в graph-ах, а в тому, що compile-time/API quirks почали зміщувати фокус роботи з CL на боротьбу з inference бібліотекою.
+
+**Прийняте практичне рішення**:
+
+- `MicroFlow` лишається evaluated Rust-first candidate
+- frozen inference stage для `ESP32` рухається через practical `TFLite Micro / esp-tflite-micro`-compatible backend
+- Rust/no_std scope концентрується там, де лежить реальна новизна роботи:
+  - `SlidingWindow`
+  - preprocessing / scale alignment
+  - `OnlineLayer`
+  - `ReplayBuffer`
+  - `FIFO vs reservoir-per-class`
+  - firmware orchestration і resource profiling
+
+**Чому це відповідає thesis**: архітектурна ідея Kwon/LifeLearner зберігається. Ми так само тримаємо `frozen / quantized feature extractor` і окремий lightweight trainable classifier, але не намагаємось зробити inference runtime новизною статті. Наша новизна — мінімалістична ESP32-адаптація CL split-model під жорсткіші обмеження, а не pure-Rust CNN inference будь-якою ціною.
+
+---
+
+## Фаза 3e — Повернення firmware до practical backend boundary
+
+**Що зроблено**: після рішення не робити `MicroFlow` blocker-ом для `Фази 3` код повернуто до чистого і компільованого backend-boundary state.
+
+**Зміни**:
+
+- з `Cargo.toml` прибрано залежність `microflow`
+- [`src/inference.rs`](/home/g00n3r/projects/esp32_cl_har/src/inference.rs:1) спрощено до `FrozenInferenceBackend` stub
+- `main.rs` більше не містить half-integrated `MicroFlow` wrapper logic
+- full-conv `.tflite` artifacts залишено в репозиторії як deployment-ready assets для подальшої practical integration через `TFLite Micro / esp-tflite-micro`-compatible backend
+
+**Що це дає**:
+
+- firmware знову не залежить від нестабільного compile-time API конкретної inference бібліотеки
+- `SlidingWindow`, preprocessing, quantization, feature path і backend boundary лишаються на місці
+- далі можна інтегрувати practical frozen inference backend без повторного переписування sensor loop і без втрати вже зробленого research pipeline
+
+**Перевірка**:
+
+- виконано лише `cargo build`
+- результат: compile success
+- `cargo run` і hardware flashing не запускались

@@ -15,7 +15,7 @@ use esp_hal::{
     time::{Duration, Instant, Rate},
 };
 use esp32_cl_har::{
-    inference::{InferenceError, MicroflowStub},
+    inference::{FrozenInferenceBackend, InferenceError},
     model::{
         BASELINE_CLASSIFIER_ARTIFACT, FEATURE_EXTRACTOR_ARTIFACT, FEATURE_TENSOR_SIZE,
         INPUT_TENSOR_SIZE, NUM_CLASSES, SAMPLE_RATE_HZ, WINDOW_STRIDE,
@@ -109,7 +109,7 @@ fn main() -> ! {
     );
     info!(
         "phase 3 skeleton ready: backend={}, classifier_artifact={}, feature_artifact={}",
-        MicroflowStub::new().backend_name(),
+        FrozenInferenceBackend::new().backend_name(),
         BASELINE_CLASSIFIER_ARTIFACT,
         FEATURE_EXTRACTOR_ARTIFACT,
     );
@@ -118,7 +118,7 @@ fn main() -> ! {
     let mut sample_count: u32 = 0;
     let mut led_on = false;
     let mut window = SlidingWindow::new();
-    let inference = MicroflowStub::new();
+    let inference = FrozenInferenceBackend::new();
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
     let mut classifier_output = [0_i8; NUM_CLASSES];
     let mut quantized_features = [0_i8; FEATURE_TENSOR_SIZE];
@@ -175,7 +175,7 @@ fn main() -> ! {
                             (Err(InferenceError::BackendUnavailable), _)
                             | (_, Err(InferenceError::BackendUnavailable)) => {
                                 info!(
-                                    "inference skeleton hit backend stub: attempt={}, input_q0={}",
+                                    "frozen inference backend stub hit: attempt={}, input_q0={}",
                                     inference_attempts,
                                     quantized_input[0],
                                 );

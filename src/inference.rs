@@ -5,31 +5,33 @@ pub enum InferenceError {
     BackendUnavailable,
 }
 
-pub struct MicroflowStub;
+pub struct FrozenInferenceBackend;
 
-impl MicroflowStub {
+impl FrozenInferenceBackend {
     pub const fn new() -> Self {
         Self
     }
 
     pub const fn backend_name(&self) -> &'static str {
-        "microflow-stub"
+        "tflm-backend-stub"
     }
 
     pub fn classify(
         &self,
-        _input: &[i8; INPUT_TENSOR_SIZE],
+        input: &[i8; INPUT_TENSOR_SIZE],
         output: &mut [i8; NUM_CLASSES],
     ) -> Result<(), InferenceError> {
+        let _ = input;
         *output = [0; NUM_CLASSES];
         Err(InferenceError::BackendUnavailable)
     }
 
     pub fn extract_features(
         &self,
-        _input: &[i8; INPUT_TENSOR_SIZE],
+        input: &[i8; INPUT_TENSOR_SIZE],
         output: &mut [i8; FEATURE_TENSOR_SIZE],
     ) -> Result<(), InferenceError> {
+        let _ = input;
         *output = [0; FEATURE_TENSOR_SIZE];
         Err(InferenceError::BackendUnavailable)
     }

@@ -59,7 +59,13 @@ pub fn raw_accel_to_mps2(raw: i16) -> f32 {
 }
 
 pub fn quantize_scalar(value: f32, scale: f32, zero_point: i8) -> i8 {
-    let centered = (value / scale).round() as i32 + zero_point as i32;
+    let scaled = value / scale;
+    let rounded = if scaled >= 0.0 {
+        (scaled + 0.5) as i32
+    } else {
+        (scaled - 0.5) as i32
+    };
+    let centered = rounded + zero_point as i32;
     centered.clamp(i8::MIN as i32, i8::MAX as i32) as i8
 }
 
