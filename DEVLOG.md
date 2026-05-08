@@ -1730,3 +1730,85 @@ online32 forward ok: attempt=2, online_us=97, pred=4(Sitting), confidence=0.9944
 **Наступний крок**:
 
 - після цього інтегрувати supervised label protocol або зробити мінімальний synthetic CL checkpoint у firmware, не додаючи persistence до стабілізації update path
+
+## Phase 4 Scope Patch — RAM-only CL, persistence deferred
+
+**Що зроблено**: зафіксовано scope patch для Phase 4 і зміщено поточну реалізацію до найкоротшого шляху на publishable experimental results.
+
+**Scope рішення**:
+
+- persistence перенесено у Future Work
+- поточна Phase 4 ціль — RAM-only continual learning sessions
+- core comparison: `No adaptation` vs `FIFO` vs `reservoir-per-class`
+- buffer-size ablation `{0,25,50,96}` позначено як optional / future
+- `NVS`, runtime flash writes, `weights.bin` і `replay.bin` не входять у поточний sprint
+
+**Причина**: persistence і flash wear policy додали б storage-engineering overhead, але не підсилюють головний внесок статті. Основна новизна лишається в мінімальному replay-based CL на ESP32: `MicroFlow-32` frozen feature extractor, Rust/no_std `OnlineLayer32`, RAM-only `ReplayBuffer32`, supervised UART labels і resource-constrained evaluation.
+
+**Реалізація в firmware**:
+
+- у `PLAN.md` Phase 4 persistence позначено як deferred / Future Work
+- у `PLAN.md` buffer ablation позначено optional / future
+- у `main.rs` для `microflow32_backend` додано простий UART label protocol:
+  - ASCII `0..5`
+  - newline optional / ignored
+  - `0=Walking`, `1=Jogging`, `2=Upstairs`, `3=Downstairs`, `4=Sitting`, `5=Standing`
+- додано RAM-only CL loop:
+  - latest `MicroFlow-32` feature vector
+  - `OnlineLayer32.forward()`
+  - label додається в `ReplayBuffer32`
+  - training запускається кожні `K=10` labeled samples
+  - mini-batch update через existing `OnlineLayer32.backward_batch()`
+- активна policy зараз задається compile-time const:
+  - `ACTIVE_REPLAY_POLICY = ReplayStrategy::Reservoir`
+  - для FIFO run достатньо переключити const на `ReplayStrategy::Fifo`
+- додано plain text logs для подальшого parsing:
+  - `PRED ...`
+  - `LABEL ...`
+  - `TRAIN ...`
+  - `RESOURCE ...`
+
+**Межі**:
+
+- JSON protocol не додано
+- checksums/timestamps/autonomous labels не додано
+- persistence/NVS/flash writes не додано
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 75s cargo run --features microflow32_backend --bin esp32_cl_har
+```
+
+**Build / flash result**:
+
+- `cargo build` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- hardware flash — success
+- app / partition size: `134,544 / 4,128,768 bytes`, тобто `3.26%`
+
+**Hardware smoke observations**:
+
+- `MPU6050` detected: address `0x68`, `WHO_AM_I=0x70`
+- `RESOURCE policy=reservoir replay_ram_est=12288 online_head_ram_est=792 persistence=0 train_every_labels=10 batch_size=12`
+- `LABEL_PROTOCOL` надруковано в serial log
+- `MicroFlow-32` inference still works:
+  - first observed `inference_us=173117`
+  - after 10 attempts: `min_us=172309`, `mean_us=172395`, `max_us=173117`
+- `OnlineLayer32.forward()` still works:
+  - first observed `head_us=177`
+  - steady observed `head_us≈84-85`
+- single-character UART labels were accepted by sending repeated `4\n`
+- replay labels were added:
+  - `LABEL label=4 name=Sitting added=1`
+  - buffer reached `buffer_len=10`, `total_seen=10`
+- RAM-only train update ran after `K=10` labels:
+  - `TRAIN policy=reservoir batch_len=12 sample_us=55 update_us=673 total_seen=10 buffer_len=10`
+- firmware did not crash during the short smoke run
+
+**Важливе спостереження**:
+
+- `Uart::new(UART0)` для label RX не зламав serial logging у short smoke test, але це треба тримати як ризик для довших експериментів, бо logging і labels ідуть через той самий UART0/USB serial path.
+- Runtime persistence не додавалась; єдиний flash write у цьому кроці — звичайне firmware flashing через `cargo run`.

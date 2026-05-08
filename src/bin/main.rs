@@ -14,6 +14,8 @@ use esp_hal::{
     main,
     time::{Duration, Instant, Rate},
 };
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp_hal::uart::{Config as UartConfig, Uart};
 use esp32_cl_har::{
     model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
     mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
@@ -34,12 +36,20 @@ use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowF
 use esp32_cl_har::model::CLASS_LABELS;
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
 use esp32_cl_har::online_layer::OnlineLayer32;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::replay_buffer::{ReplayBuffer32, ReplayStrategy};
 use log::info;
 
 const SAMPLE_PERIOD: Duration = Duration::from_millis(50);
 const LOG_EVERY_SAMPLES: u32 = SAMPLE_RATE_HZ;
 #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
 const LATENCY_REPORT_EVERY_ATTEMPTS: u32 = 10;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+const CL_TRAIN_EVERY_LABELS: u32 = 10;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+const CL_BATCH_SIZE: usize = 12;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+const ACTIVE_REPLAY_POLICY: ReplayStrategy = ReplayStrategy::Reservoir;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -78,6 +88,34 @@ fn argmax(values: &[f32]) -> usize {
     best_idx
 }
 
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+fn replay_policy_name(policy: ReplayStrategy) -> &'static str {
+    match policy {
+        ReplayStrategy::Fifo => "fifo",
+        ReplayStrategy::Reservoir => "reservoir",
+    }
+}
+
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+fn read_uart_label(rx: &mut Uart<'_, esp_hal::Blocking>) -> Option<u8> {
+    let mut byte = [0_u8; 1];
+    loop {
+        match rx.read(&mut byte) {
+            Ok(1) => {
+                let value = byte[0];
+                if (b'0'..=b'5').contains(&value) {
+                    return Some(value - b'0');
+                }
+            }
+            Ok(_) => return None,
+            Err(err) => {
+                info!("LABEL_READ error={}", err);
+                return None;
+            }
+        }
+    }
+}
+
 fn probe_sensor<'d>(
     i2c: &mut I2c<'d, esp_hal::Blocking>,
 ) -> Result<(Mpu6050, u8), I2cError> {
@@ -107,6 +145,14 @@ fn main() -> ! {
     );
 
     let mut led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let mut label_rx = match Uart::new(peripherals.UART0, UartConfig::default()) {
+        Ok(uart) => uart.with_rx(peripherals.GPIO3),
+        Err(err) => {
+            info!("uart label rx init error: {}", err);
+            loop {}
+        }
+    };
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(100));
     let mut i2c = match I2c::new(peripherals.I2C0, i2c_config) {
         Ok(i2c) => i2c.with_sda(peripherals.GPIO21).with_scl(peripherals.GPIO22),
@@ -140,6 +186,16 @@ fn main() -> ! {
         phase3_classifier_artifact_name(),
         phase3_feature_artifact_name(),
     );
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    {
+        info!(
+            "RESOURCE policy={} replay_ram_est=12288 online_head_ram_est=792 persistence=0 train_every_labels={} batch_size={}",
+            replay_policy_name(ACTIVE_REPLAY_POLICY),
+            CL_TRAIN_EVERY_LABELS,
+            CL_BATCH_SIZE,
+        );
+        info!("LABEL_PROTOCOL send one ASCII digit 0..5 followed by newline; 0=Walking 1=Jogging 2=Upstairs 3=Downstairs 4=Sitting 5=Standing");
+    }
 
     let mut next_sample_at = Instant::now() + SAMPLE_PERIOD;
     let mut sample_count: u32 = 0;
@@ -150,7 +206,16 @@ fn main() -> ! {
     #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let inference = MicroflowFeatureBackend::new();
     #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let online_layer = OnlineLayer32::new_microflow32_pretrained();
+    let mut online_layer = OnlineLayer32::new_microflow32_pretrained();
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let mut replay = ReplayBuffer32::new();
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let mut cl_batch_features =
+        [[0.0_f32; esp32_cl_har::model::MICROFLOW32_FEATURE_TENSOR_SIZE]; CL_BATCH_SIZE];
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let mut cl_batch_labels = [0_u8; CL_BATCH_SIZE];
+    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    let mut labels_since_train = 0_u32;
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
     #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut classifier_output = [0_i8; NUM_CLASSES];
@@ -223,13 +288,66 @@ fn main() -> ! {
                                 let predicted_idx = argmax(&probs);
 
                                 info!(
-                                    "online32 forward ok: attempt={}, online_us={}, pred={}({}), confidence={}",
+                                    "PRED attempt={} class={} label={} conf={} infer_us={} head_us={}",
                                     inference_attempts,
-                                    online_us,
                                     predicted_idx,
                                     CLASS_LABELS[predicted_idx],
                                     probs[predicted_idx],
+                                    inference_us,
+                                    online_us,
                                 );
+
+                                if let Some(label) = read_uart_label(&mut label_rx) {
+                                    let fill_started = Instant::now();
+                                    let added =
+                                        replay.push(label, features, ACTIVE_REPLAY_POLICY).is_some();
+                                    let fill_us = fill_started.elapsed().as_micros();
+                                    let buffer_len = replay.total_len();
+
+                                    if added {
+                                        labels_since_train += 1;
+                                    }
+
+                                    info!(
+                                        "LABEL label={} name={} added={} buffer_len={} total_seen={} fill_us={}",
+                                        label,
+                                        CLASS_LABELS[usize::from(label)],
+                                        if added { 1 } else { 0 },
+                                        buffer_len,
+                                        replay.total_seen(),
+                                        fill_us,
+                                    );
+
+                                    if added && labels_since_train >= CL_TRAIN_EVERY_LABELS {
+                                        let sample_started = Instant::now();
+                                        let batch_len = replay.sample_balanced_batch(
+                                            &mut cl_batch_features,
+                                            &mut cl_batch_labels,
+                                        );
+                                        let sample_us = sample_started.elapsed().as_micros();
+
+                                        if batch_len > 0 {
+                                            let update_started = Instant::now();
+                                            online_layer.backward_batch(
+                                                &cl_batch_features[..batch_len],
+                                                &cl_batch_labels[..batch_len],
+                                                0.001,
+                                            );
+                                            let update_us = update_started.elapsed().as_micros();
+                                            labels_since_train = 0;
+
+                                            info!(
+                                                "TRAIN policy={} batch_len={} sample_us={} update_us={} total_seen={} buffer_len={}",
+                                                replay_policy_name(ACTIVE_REPLAY_POLICY),
+                                                batch_len,
+                                                sample_us,
+                                                update_us,
+                                                replay.total_seen(),
+                                                replay.total_len(),
+                                            );
+                                        }
+                                    }
+                                }
                             }
 
                             if inference_attempts % LATENCY_REPORT_EVERY_ATTEMPTS == 0 {
