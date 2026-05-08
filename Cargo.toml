@@ -27,6 +27,10 @@ name = "microflow32_consistency_smoke"
 path = "./src/bin/microflow32_consistency_smoke.rs"
 required-features = ["microflow32_backend"]
 
+[[bin]]
+name = "mpu_domain_shift_probe"
+path = "./src/bin/mpu_domain_shift_probe.rs"
+
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]

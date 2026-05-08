@@ -1349,3 +1349,93 @@ PY
 - PC TFLite і ESP MicroFlow-32 outputs збігаються в межах очікуваного float formatting
 - це підтверджує, що ESP32 рахує саме exported TFLite artifact, а не просто повертає довільні features
 - `MicroFlow-32` можна використовувати як основний frozen feature extractor candidate для наступного `OnlineLayer` integration
+
+---
+
+## Фаза 3o — MPU6050 vs WISDM domain-shift probe
+
+**Що зроблено**: додано і запущено окремий probe binary для первинної оцінки domain shift між реальним `MPU6050` і статистиками `WISDM`, на яких тренувався preprocessing/model pipeline.
+
+**Новий binary**:
+
+- [`src/bin/mpu_domain_shift_probe.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/mpu_domain_shift_probe.rs:1)
+
+**Що вимірює**:
+
+- raw accelerometer LSB stats
+- converted `m/s²` stats
+- `z-score` stats відносно `WISDM_ZSCORE_STATS`
+- quantized `int8` min/max і saturation counts
+
+**Межі кроку**:
+
+- без inference
+- без `OnlineLayer`
+- без replay
+- без persistence / NVS / flash writes
+- сенсор лежав нерухомо; це baseline stationary distribution, а не activity-recognition test
+
+**Команди**:
+
+```bash
+cargo build --bin mpu_domain_shift_probe
+. $HOME/export-esp.sh && cargo run --bin mpu_domain_shift_probe
+```
+
+**Build / flash result**:
+
+- build: success
+- hardware run: success
+- app / partition size: `116,368 / 4,128,768 bytes`, тобто `2.82%`
+- samples: `200`
+- sampling rate: `20 Hz`
+
+**WISDM normalization constants**:
+
+```text
+means = [0.664113, 7.246045, 0.397697]
+stds  = [6.876277, 6.739789, 4.761111]
+input_scale = 0.030599216
+input_zero_point = 9
+```
+
+**Stationary MPU6050 result**:
+
+Axis 0:
+
+```text
+raw mean=-1246.54, std=31.78, min=-1356, max=-1168
+mps2 mean=-0.7461, std=0.0190
+zscore mean=-0.2051, std=0.0028
+quant_i8 min=2, max=3, sat_min=0, sat_max=0
+```
+
+Axis 1:
+
+```text
+raw mean=187.46, std=37.71, min=96, max=280
+mps2 mean=0.1122, std=0.0226
+zscore mean=-1.0585, std=0.0034
+quant_i8 min=-26, max=-25, sat_min=0, sat_max=0
+```
+
+Axis 2:
+
+```text
+raw mean=16032.24, std=55.94, min=15904, max=16172
+mps2 mean=9.5961, std=0.0323
+zscore mean=1.9320, std=0.0071
+quant_i8 min=72, max=73, sat_min=0, sat_max=0
+```
+
+**Висновок**:
+
+- stationary MPU6050 distribution суттєво відрізняється від WISDM normalization center, особливо на `axis1` і `axis2`
+- gravity домінує на `axis2`, що очікувано для нерухомого сенсора
+- quantization не saturates, тому input scale поки придатний для hardware path
+- цей результат треба використати в Discussion як обґрунтування domain shift і потреби continual adaptation
+
+**Рішення**:
+
+- Фаза 3 тепер має functional inference, latency/resource trade-off, PC-vs-ESP consistency і базовий domain-shift evidence
+- наступний practical крок: перейти до `OnlineLayer32` forward-only integration, без replay/training/persistence
