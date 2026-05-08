@@ -451,3 +451,30 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 - `.tflite` артефакти ще не вбудовані у firmware
 - реальний forward pass ще не виконується
 - `cargo run` / hardware test не запускали
+
+---
+
+## Фаза 3b — Узгодження sensor scale з WISDM preprocessing
+
+**Що зроблено**: у quantization path виправлено критичний scale mismatch між сирими `MPU6050` значеннями і статистиками `WISDM`. Драйвер `mpu6050.rs` залишився low-level і продовжує повертати raw `i16` counts, але в [`src/quant.rs`](/home/g00n3r/projects/esp32_cl_har/src/quant.rs:1) перед `z-score` тепер виконується явна конверсія `raw -> m/s²`.
+
+**Прийняте припущення**:
+
+- після reset `MPU6050` працює в default accel range `±2g`
+- для цього режиму використано `16384 LSB/g`
+- конверсія:
+  - `g = raw / 16384.0`
+  - `m/s² = g * 9.80665`
+
+**Чому це важливо**: `WISDM` preprocessing і нормалізація в notebook працювали в фізичних одиницях, а не в raw ADC counts. Без цієї правки firmware формально міг би робити inference, але подавав би моделі неправильний input distribution.
+
+**Що це дає**:
+
+- `quantize_window()` тепер ближче відтворює той самий preprocessing path, що й offline model pipeline
+- sensor driver залишається простим і перевіряємим
+- conversion logic локалізована в quantization module, де їй і місце
+
+**Що ще треба перевірити далі**:
+
+- host-side sanity check layout/quantization проти Python
+- лише після цього підключати реальний `MicroFlow` backend
