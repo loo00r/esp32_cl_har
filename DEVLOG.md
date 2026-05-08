@@ -1097,3 +1097,96 @@ cargo build --features microflow_backend --bin esp32_cl_har
 ```
 
 **Рішення**: `32`-feature path готується як ablation, а не як заміна `64` baseline. Після запуску треба порівняти `64` vs `32` за latency, Flash footprint, offline accuracy і replay RAM.
+
+---
+
+## Фаза 3l — Результати notebook run для `MicroFlow-32`
+
+**Що перевірено**: переглянуто outputs у [`notebooks/CNN_training_microflow32.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/CNN_training_microflow32.ipynb:1) після локального запуску notebook.
+
+**MicroFlow-32 architecture**:
+
+- input: `(80, 3, 1)`
+- `Conv2D(32, kernel=(5,3))`
+- `Conv2D(32, kernel=(3,1))`
+- `AveragePooling2D(pool=(74,1))`
+- classifier head: `Conv2D(6, kernel=(1,1)) + Softmax`
+- feature extractor output: `(1, 1, 1, 32)`
+
+**Parameter count**:
+
+- classifier: `3,814` params (`~14.90 KB` float32 representation)
+- feature extractor: `3,616` params (`~14.12 KB` float32 representation)
+- для порівняння попередній `MicroFlow-64` classifier мав `7,110` params, feature extractor `6,720` params
+
+**Training output у notebook**:
+
+- final MicroFlow-32 training epoch:
+  - `accuracy=0.8713`
+  - `loss=0.3512`
+  - `val_accuracy=0.8483`
+  - `val_loss=0.5206`
+- feature sample:
+  - shape: `(1, 1, 1, 32)`
+  - dtype: `float32`
+  - first values: `[1.0827651, 4.4670916, 0.04870715, 0.7682283, ...]`
+
+**Artifact paths**:
+
+```text
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_classifier_int8.tflite
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_classifier_int8_metadata.json
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_feature_extractor_int8.tflite
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_feature_extractor_int8_metadata.json
+```
+
+**Artifact sizes**:
+
+- classifier `.tflite`: `9.4 KB`
+- feature extractor `.tflite`: `8.1 KB`
+
+**Quantization metadata**:
+
+- input shape: `[1, 80, 3, 1]`
+- input dtype: `int8`
+- input scale: `0.030599215999245644`
+- input zero point: `9`
+- classifier output shape: `[1, 1, 1, 6]`
+- classifier output scale: `0.00390625`
+- classifier output zero point: `-128`
+- feature output shape: `[1, 1, 1, 32]`
+- feature output scale: `0.07324092090129852`
+- feature output zero point: `-128`
+- representative samples: `192`
+
+**TFLite ops**:
+
+Classifier:
+
+```text
+CONV_2D
+CONV_2D
+AVERAGE_POOL_2D
+CONV_2D
+SOFTMAX
+```
+
+Feature extractor:
+
+```text
+CONV_2D
+CONV_2D
+AVERAGE_POOL_2D
+```
+
+**Висновок**:
+
+- `MicroFlow-32` artifact clean з точки зору ops і сумісний з тим самим bounded MicroFlow path
+- output shape і metadata відповідають очікуваному `32`-feature extractor
+- PC-side validation accuracy не просіла критично відносно `64` path, тому `32`-feature extractor є реальним кандидатом для ESP32 latency ablation
+
+**Наступний крок**:
+
+- скопіювати `microflow_fullconv32_feature_extractor_int8.tflite` і metadata у `src/model_artifacts/`
+- додати окремий `MicroFlow-32` backend/feature flag або тимчасово перемкнути artifact для виміру latency
+- заміряти streaming latency на ESP32 і порівняти з `MicroFlow-64` (`mean ≈ 298.7 ms`)
