@@ -9,4 +9,5 @@ pub mod model;
 pub mod mpu6050;
 pub mod online_layer;
 pub mod quant;
+pub mod replay_buffer;
 pub mod window;

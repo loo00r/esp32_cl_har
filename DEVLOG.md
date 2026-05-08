@@ -1674,3 +1674,59 @@ online32 forward ok: attempt=2, online_us=97, pred=4(Sitting), confidence=0.9944
 
 - зробити short movement sanity run: нерухомо / легке переміщення / ходьба з платою в руці, без training
 - потім переходити до `ReplayBuffer32` як ізольованого модуля або до supervised-label input тільки після рішення по protocol
+
+## Фаза 4b — Ізольований `ReplayBuffer32` з reservoir-per-class
+
+**Що зроблено**: додано окремий Rust-модуль replay storage для майбутнього CL-loop, не інтегруючи його ще в основний sensor/inference path.
+
+**Додано**:
+
+- [`src/replay_buffer.rs`](/home/g00n3r/projects/esp32_cl_har/src/replay_buffer.rs:1)
+  - `ReplayBuffer<const D: usize>`
+  - `ReplayBuffer32` і `ReplayBuffer64` alias-и
+  - fixed `16` слотів на клас
+  - `features[6][16][D]`, `seen[6]`, `len[6]`
+  - `push_reservoir(...)` для per-class reservoir sampling
+  - `push_fifo(...)` для майбутнього порівняння `FIFO` vs `reservoir`
+  - `sample_balanced_batch(...)` для формування replay mini-batch без heap allocation
+- [`src/bin/replay_buffer_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/replay_buffer_smoke.rs:1)
+  - synthetic `32`-feature samples
+  - заповнення replay buffer по всіх `6` класах
+  - balanced batch sampling
+  - один `OnlineLayer32.backward_batch()` поверх replay batch
+  - без сенсора, inference backend, UART labels, persistence або flash writes
+
+**Рішення**: `ReplayBuffer` зроблено const-generic по feature dimension, але розмір per-class storage лишено фіксованим (`16`) відповідно до research plan. Це дозволяє тримати `MicroFlow-32` як основний embedded path (`12 KB` replay RAM) і не втрачати сумісність з `64`-feature reference path (`24 KB` replay RAM).
+
+**Межі кроку**:
+
+- replay storage ще не підключений у `main.rs`
+- labels через UART ще не реалізовані
+- runtime CL update у sensor loop ще не виконується
+- persistence/NVS не додавались
+
+**Перевірка**:
+
+- `cargo build --bin esp32_cl_har` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- `cargo build --bin replay_buffer_smoke` — success
+- перша спроба `cargo run --bin replay_buffer_smoke` в sandbox не побачила serial port, але host-level перевірка підтвердила `/dev/ttyUSB0`, `CH340` і `ESP32 rev v3.1`
+- `cargo run --bin replay_buffer_smoke` з доступом до `/dev/ttyUSB0` — flash + runtime success
+
+**Hardware log**:
+
+- app / partition size: `106,496 / 4,128,768 bytes`, тобто `2.58%`
+- `total_seen=144`
+- `total_len=96`, тобто `6 x 16` replay slots заповнено
+- `feature_dim=32`
+- `fill=499 us`
+- `sample=54 us`
+- `online_update=633 us`
+- `batch_len=12`
+- target probability після одного small-LR update змінилась:
+  - before: `0.039916247`
+  - after: `0.039977703`
+
+**Наступний крок**:
+
+- після цього інтегрувати supervised label protocol або зробити мінімальний synthetic CL checkpoint у firmware, не додаючи persistence до стабілізації update path
