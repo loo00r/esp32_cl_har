@@ -274,6 +274,92 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 
 ---
 
+## Фаза 2d — Baseline `LOSO CV` для `1D-CNN`
+
+**Що зроблено**: після переходу на fold-aware preprocessing виконано повний `Leave-One-Subject-Out CV` для baseline `1D-CNN` моделі на `WISDM`. Для кожного `test_subject_id` окремо будувалися:
+
+- train/test split по суб'єктах
+- `z-score` статистики тільки на train-subjects
+- windowing `80x3` з overlap `50%`
+- новий екземпляр baseline-моделі
+
+**Архітектура baseline**:
+
+- `Conv1D(32, kernel_size=5, activation='relu', padding='same')`
+- `Conv1D(64, kernel_size=3, activation='relu', padding='same')`
+- `GlobalAveragePooling1D()`
+- `Dense(6, activation='softmax')`
+
+**Підсумкові метрики `LOSO CV`**:
+
+- `mean accuracy = 0.8130`
+- `std accuracy = 0.1096`
+- `accuracy = 0.8217`
+- `macro avg f1-score = 0.7809`
+- `weighted avg f1-score = 0.8193`
+
+**Per-class результати**:
+
+- `Walking`: precision `0.8732`, recall `0.9142`, f1 `0.8933`
+- `Jogging`: precision `0.9333`, recall `0.9123`, f1 `0.9227`
+- `Upstairs`: precision `0.5940`, recall `0.5871`, f1 `0.5905`
+- `Downstairs`: precision `0.5209`, recall `0.4672`, f1 `0.4926`
+- `Sitting`: precision `0.9638`, recall `0.7389`, f1 `0.8365`
+- `Standing`: precision `0.9486`, recall `0.9512`, f1 `0.9499`
+
+**Спостереження**:
+
+- baseline добре відрізняє `Walking`, `Jogging`, `Standing`
+- найбільша плутанина спостерігається між `Walking`, `Upstairs` і `Downstairs`
+- розкид `accuracy` по fold-ах помітний, що підтримує thesis про user-level domain shift і потребу в подальшій on-device адаптації
+
+**Рішення**: на цьому етапі не продовжували offline-tuning архітектури. Отриманий `LOSO` baseline уже достатньо сильний, щоб перейти до наступного кроку `Фази 2`: підготовки `representative dataset`, `INT8 quantization` і експорту `model.tflite`.
+
+---
+
+## Фаза 2e — `INT8` quantization і експорт `model.tflite`
+
+**Що зроблено**: після завершення `LOSO CV` baseline-модель натреновано на фінальному наборі `X_final`, побудованому з усього доступного корпусу вікон `80x3` після `z-score` нормалізації. Для quantization не використовували один довільний `LOSO` fold, а сформували окремий фінальний training corpus і на його основі зібрали representative dataset.
+
+**Representative dataset**:
+
+- фінальний корпус: `X_final.shape = (9154, 80, 3)`
+- `y_final.shape = (9154,)`
+- representative set побудовано як class-balanced піднабір
+- по `32` вікна на кожен з `6` класів
+- підсумковий representative set: `X_representative.shape = (192, 80, 3)`
+
+**Рішення по representative data**: для `INT8` calibration навмисно не використовували windows лише з одного subject або одного `LOSO` fold. Representative set повинен відбивати загальну train-distribution входів, а не частковий split. Додатково введено балансування по класах, щоб calibration не перекошувалась у бік домінуючих класів `Walking/Jogging`.
+
+**Експорт**:
+
+- baseline-модель експортовано через `TFLiteConverter`
+- застосовано `tf.lite.Optimize.DEFAULT`
+- використано `representative_dataset`
+- `supported_ops = TFLITE_BUILTINS_INT8`
+- `inference_input_type = int8`
+- `inference_output_type = int8`
+
+**Збережені артефакти**:
+
+- `model.tflite`: `/tmp/esp32_cl_har_artifacts/baseline_cnn_int8.tflite`
+- metadata: `/tmp/esp32_cl_har_artifacts/baseline_cnn_int8_metadata.json`
+
+**Підсумкові quantization параметри**:
+
+- input shape: `[1, 80, 3]`
+- output shape: `[1, 6]`
+- input dtype: `int8`
+- output dtype: `int8`
+- `input_scale = 0.030599215999245644`
+- `input_zero_point = 9`
+- `output_scale = 0.00390625`
+- `output_zero_point = -128`
+
+**Що це означає**: `Фаза 2` практично закрита. Тепер існує повний baseline artifact для embedded inference path. Водночас для `Фази 4` з `OnlineLayer 64 -> 6` імовірно знадобиться окремий export feature extractor варіанту, який віддає `64`-вимірний feature vector, а не фінальні `6` logits/classes.
+
+---
+
 ## Фаза 0h — Уточнення thesis-positioning проти новіших робіт
 
 **Що зроблено**: після перегляду новіших статей `2025–2026` уточнено дослідницьке позиціонування в `THESIS.md` і `PLAN.md`. Явно зафіксовано, що найближчим прямим аналогом є `COOL (2026)`, тоді як `PACL+ (2025)`, `TrustTiny-HAR (2026)` і новіші TinyML HAR роботи використовуються як сильний фон для `Related Work`, replay-мотивації та resource-oriented comparison.
