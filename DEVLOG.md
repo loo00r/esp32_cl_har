@@ -478,3 +478,30 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 
 - host-side sanity check layout/quantization проти Python
 - лише після цього підключати реальний `MicroFlow` backend
+
+---
+
+## Фаза 3c — Host-side sanity check для quantization/layout
+
+**Що зроблено**: додано окремий host-side script [`scripts/quant_sanity_check.py`](/home/g00n3r/projects/esp32_cl_har/scripts/quant_sanity_check.py:1), який перевіряє, що Rust-side quantization path відтворює Python reference для full-conv `MicroFlow` classifier artifact.
+
+**Що саме перевіряє script**:
+
+- бере реальний contiguous `80`-sample window з локального `WISDM`
+- використовує metadata від `microflow_fullconv_classifier_int8.tflite`
+- формує Python reference quantized tensor
+- окремо симулює Rust path:
+  - `m/s² -> raw MPU6050 counts`
+  - `raw -> m/s²`
+  - `z-score`
+  - `int8 quantization`
+- порівнює плоский input tensor layout довжини `240`
+
+**Результат**:
+
+- input shape: `[1, 80, 3, 1]`
+- flat tensor length: `240`
+- `max_abs_diff = 0`
+- `mismatch_count = 0`
+
+**Висновок**: поточний Rust path для `SlidingWindow -> quantize_window()` узгоджений із Python/TFLite preprocessing як по scale, так і по flat layout. Це знімає найбільш небезпечний ризик перед інтеграцією реального inference backend: що модель отримувала б правильний graph, але неправильний input distribution або переплутаний tensor order.
