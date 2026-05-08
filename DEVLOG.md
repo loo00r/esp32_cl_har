@@ -365,3 +365,29 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 **Що зроблено**: після перегляду новіших статей `2025–2026` уточнено дослідницьке позиціонування в `THESIS.md` і `PLAN.md`. Явно зафіксовано, що найближчим прямим аналогом є `COOL (2026)`, тоді як `PACL+ (2025)`, `TrustTiny-HAR (2026)` і новіші TinyML HAR роботи використовуються як сильний фон для `Related Work`, replay-мотивації та resource-oriented comparison.
 
 **Рішення**: не роздували документацію окремими research memo файлами. Натомість мінімально і прямо скоригували thesis-рамку: робота не претендує на `state-of-the-art` accuracy, а захищає відтворюваний `ESP32 + Rust/no_std + MPU6050` replay-based baseline з порівнянням `FIFO` vs `reservoir-per-class` під жорстким memory budget.
+
+---
+
+## Фаза 3.0a — Підготовка MicroFlow-friendly export path
+
+**Що зроблено**: перед стартом embedded inference path перевірили сумісність quantized graph із `MicroFlow` як primary Rust-first runtime кандидатом. Початковий `Conv1D + GlobalAveragePooling1D` export давав небажані `EXPAND_DIMS` і `MEAN`, тому в notebook зібрано окремий `MicroFlow`-friendly варіант через `Conv2D + AveragePooling2D`.
+
+**Нові артефакти pipeline**:
+
+- baseline classifier для `MicroFlow`: `80x3x1 -> 6`
+- feature extractor для CL pipeline: `80x3x1 -> 64`
+
+**Проміжний результат**:
+
+- classifier artifact: `/tmp/esp32_cl_har_artifacts/microflow_classifier_int8.tflite`
+- feature extractor artifact: `/tmp/esp32_cl_har_artifacts/microflow_feature_extractor_int8.tflite`
+- classifier output shape: `[1, 6]`
+- feature extractor output shape: `[1, 64]`
+
+**Виявлений blocker**: після першого `MicroFlow`-friendly export graph усе ще містив службові ops `SHAPE`, `STRIDED_SLICE` і `PACK` поруч із `RESHAPE`. Найімовірніше це походить від явного `Reshape((64,))` у шарі `feature_vector`.
+
+**Мінімальна правка**: notebook оновлено так, щоб `feature_vector` будувався через `Flatten`, а не через явний `Reshape((64,))`. Це локальна технічна правка без зміни загальної архітектури, потрібна лише для очищення TFLite graph перед повторним compatibility check.
+
+**Статус**: compatibility gate ще не закрито остаточно. Наступний крок — повторити training/export для `MicroFlow`-friendly моделі й ще раз перевірити список ops. Лише після clean graph можна переходити до Rust integration у `Фазі 3`.
+
+**Оновлення після повторної перевірки**: `Flatten` не прибрав службові ops `SHAPE`, `STRIDED_SLICE`, `PACK` і `RESHAPE`. Тому `MicroFlow`-гілку далі спрощено до full-conv варіанту без переходу `4D tensor -> vector`: classifier head тепер планується як `Conv2D(6, 1x1) + Softmax`, а feature extractor віддає `1x1x64` tensor. Це не змінює baseline path і не зачіпає вже завершену `Фазу 2`, а лише додає окремий deployment-oriented export path для `Фази 3.0`.
