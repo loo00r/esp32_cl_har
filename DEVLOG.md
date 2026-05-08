@@ -1439,3 +1439,72 @@ quant_i8 min=72, max=73, sat_min=0, sat_max=0
 
 - Фаза 3 тепер має functional inference, latency/resource trade-off, PC-vs-ESP consistency і базовий domain-shift evidence
 - наступний practical крок: перейти до `OnlineLayer32` forward-only integration, без replay/training/persistence
+
+## Фаза 3p — RAM / firmware size checkpoint для MicroFlow-32 і MicroFlow-64
+
+**Що зроблено**: закрито RAM/resource checkpoint для Phase 3 на рівні build sections, firmware footprint і ручної оцінки контрольованих буферів. Hardware inference/stability для `MicroFlow-32` і `MicroFlow-64` уже перевірялися раніше; на цьому кроці `cargo run` не потрібен.
+
+**Команди**:
+
+```bash
+cargo build --features microflow32_backend --bin esp32_cl_har
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/debug/esp32_cl_har
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/esp32_cl_har
+
+cargo build --features microflow_backend --bin esp32_cl_har
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/debug/esp32_cl_har
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/esp32_cl_har
+
+cargo build --release --features microflow32_backend --bin esp32_cl_har
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/release/esp32_cl_har
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/release/esp32_cl_har
+
+cargo build --release --features microflow_backend --bin esp32_cl_har
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/release/esp32_cl_har
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/release/esp32_cl_har
+```
+
+**Debug build results**:
+
+| Build | `.data` | `.bss` | `.data + .bss` | `.rodata` | `.text` | summary `text/data/bss` |
+|---|---:|---:|---:|---:|---:|---:|
+| `microflow32_backend` | `6,172 B` | `200 B` | `6,372 B` | `43,064 B` | `59,166 B` | `106,746 / 6,172 / 190,436` |
+| `microflow_backend` | `6,172 B` | `200 B` | `6,372 B` | `46,296 B` | `60,274 B` | `111,086 / 6,172 / 190,436` |
+
+**Release build results**:
+
+| Build | `.data` | `.bss` | `.data + .bss` | `.rodata` | `.text` | summary `text/data/bss` |
+|---|---:|---:|---:|---:|---:|---:|
+| `microflow32_backend` | `728 B` | `184 B` | `912 B` | `9,208 B` | `36,969 B` | `51,149 / 728 / 195,880` |
+| `microflow_backend` | `728 B` | `184 B` | `912 B` | `12,432 B` | `38,569 B` | `55,973 / 728 / 195,880` |
+
+**Interpretation**:
+
+- `.data + .bss` дає корисну оцінку статичної DRAM, але `size` summary включає `.stack` у `bss`, тому summary `bss=195,880 B` не треба читати як фактично зайняті model buffers
+- `.rodata` містить read-only model bytes / constants і є flash-mapped footprint, а не великий SRAM replay buffer
+- `.stack` показує зарезервований linker region, а не виміряний high-water mark
+- точний peak stack/high-water mark поки не інструментовано; runtime-stability already checked через streaming runs без reset/panic
+
+**Контрольовані RAM буфери поточного Phase 3 path**:
+
+| Component | Size |
+|---|---:|
+| `SlidingWindow` | `80 x 3 x i16 = 480 B` |
+| quantized input tensor | `80 x 3 x i8 = 240 B` |
+| `MicroFlow-32` feature output | `32 x f32 = 128 B` |
+| `MicroFlow-64` feature output | `64 x f32 = 256 B` |
+| future `OnlineLayer32` weights + bias | `(32 x 6 + 6) x f32 = 792 B` |
+| future replay buffer for `32` features | `6 x 16 x 32 x f32 = 12,288 B` |
+| future replay buffer for `64` features | `6 x 16 x 64 x f32 = 24,576 B` |
+
+**Висновок**:
+
+- Phase 3 RAM/Flash gate не показує blocker для `MicroFlow-32`
+- `MicroFlow-32` лишається основним embedded candidate: нижча latency, менший feature/replay RAM, така сама практична accuracy за notebook run
+- `MicroFlow-64` лишається reference path, але не основний ESP32 CL candidate
+- Фаза 3 вважається закритою для поточного scope: frozen extractor працює на ESP32, latency/resource/consistency/domain-shift зафіксовано
+
+**Наступний крок**:
+
+- перейти до `OnlineLayer32` forward-only integration поверх `MicroFlow-32` features
+- не додавати replay, SGD update, UART labels або persistence до окремого forward-only checkpoint
