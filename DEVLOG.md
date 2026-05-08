@@ -1053,3 +1053,47 @@ cargo build --features microflow_backend --bin esp32_cl_har
 - перед підключенням `OnlineLayer` треба зробити hardware-aware decision:
   - або чесно лишити `64` features як resource-limited baseline
   - або підготувати `32`-feature variant і порівняти latency / accuracy / replay RAM
+
+---
+
+## Фаза 3k — Notebook для `MicroFlow-32` ablation
+
+**Що зроблено**: створено окрему копію training notebook для перевірки легшого `32`-feature extractor без зміни основного `64`-feature baseline notebook.
+
+**Новий файл**:
+
+- [`notebooks/CNN_training_microflow32.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/CNN_training_microflow32.ipynb:1)
+
+**Зміни відносно `CNN_training.ipynb`**:
+
+- outputs очищені, щоб не змішувати старі `64`-feature результати з новим ablation run
+- додано `MICROFLOW_FEATURE_DIM = 32`
+- у MicroFlow full-conv моделі другий `Conv2D` тепер використовує `filters=feature_dim`
+- feature extractor output має стати `1x1x1x32`
+- export names змінені, щоб не перезаписати `64` artifacts:
+  - `microflow_fullconv32_classifier_int8.tflite`
+  - `microflow_fullconv32_feature_extractor_int8.tflite`
+- metadata доповнено:
+  - `microflow_feature_dim`
+  - `ablation = "microflow32"`
+
+**Що не змінювали**:
+
+- preprocessing
+- LOSO/fold-aware logic
+- representative dataset logic
+- quantization flow
+- MicroFlow-friendly full-conv op pattern
+
+**Як запускати**:
+
+Запускати notebook зверху вниз локально. Очікувані артефакти після export:
+
+```text
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_classifier_int8.tflite
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_classifier_int8_metadata.json
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_feature_extractor_int8.tflite
+/tmp/esp32_cl_har_artifacts/microflow_fullconv32_feature_extractor_int8_metadata.json
+```
+
+**Рішення**: `32`-feature path готується як ablation, а не як заміна `64` baseline. Після запуску треба порівняти `64` vs `32` за latency, Flash footprint, offline accuracy і replay RAM.
