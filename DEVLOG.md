@@ -1730,3 +1730,196 @@ online32 forward ok: attempt=2, online_us=97, pred=4(Sitting), confidence=0.9944
 **Наступний крок**:
 
 - після цього інтегрувати supervised label protocol або зробити мінімальний synthetic CL checkpoint у firmware, не додаючи persistence до стабілізації update path
+
+## Фаза 4 Scope Correction — PLAN aligned with stable replay-buffer state
+
+**Що виправлено**: після невдалого широкого UART/CL-loop експерименту робоча гілка повернута до стабільної точки `91d9dd3`, де завершено `ReplayBuffer32` smoke, але UART labels і CL loop ще не інтегровані в `main.rs`.
+
+**Поточний фактичний стан**:
+
+- `src/bin/main.rs` лишається стабільним inference path:
+  - `MPU6050 -> SlidingWindow -> MicroFlow-32 -> OnlineLayer32.forward() -> logs`
+  - без UART labels
+  - без replay training у main loop
+  - без persistence/NVS/flash writes для CL state
+- `ReplayBuffer32` реалізований і smoke-tested окремо:
+  - RAM-only storage
+  - `FIFO` і `reservoir-per-class` policy в модулі
+  - balanced mini-batch sample path
+- `PLAN.md` виправлено:
+  - persistence позначено як `[DEFERRED / Future Work]`
+  - buffer-size ablation лишено optional/future
+  - UART labels, RAM-only CL loop і integration into main loop повернуті в pending
+
+**Команди**:
+
+```bash
+git branch backup/bad-uart-cl-55b2043 55b2043ccee5863178c579eb700a9e3e0adc2a3c
+git stash push -m codex-bad-uart-cleanup-before-stable-branch -- DEVLOG.md src/bin/main.rs
+git switch -c stable/phase4-replay-smoke 91d9dd3
+. $HOME/export-esp.sh && cargo build
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 35s cargo run --features microflow32_backend --bin esp32_cl_har
+timeout 35s espflash monitor --chip esp32 --port /dev/ttyUSB0 --non-interactive --elf target/xtensa-esp32-none-elf/debug/esp32_cl_har
+```
+
+**Build / flash**:
+
+- `cargo build` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- firmware flashed successfully
+- app / partition size: `126,512 / 4,128,768 bytes`, тобто `3.06%`
+
+**Hardware smoke output**:
+
+```text
+mpu6050 detected at 0x68, WHO_AM_I=0x70
+phase 3 streaming path ready: backend=microflow-fullconv32-feature-extractor
+window buffer ready: 80 samples collected, stride=40
+microflow feature ok: attempt=1, inference_us=173957
+online32 forward ok: attempt=1, online_us=161, pred=4(Sitting), confidence=0.9944524
+microflow feature ok: attempt=10, inference_us=172867
+online32 forward ok: attempt=10, online_us=97, pred=4(Sitting), confidence=0.9944524
+microflow latency stats: attempts=10, min_us=172867, mean_us=172976, max_us=173957
+```
+
+**Висновок**:
+
+- стабільний `main.rs` не зависає після першого prediction
+- MPU6050, windowing, MicroFlow-32 і OnlineLayer32 forward працюють на залізі
+- наступний ризиковий крок має бути тільки isolated `uart_label_smoke.rs`, без змін у `main.rs`
+
+## Фаза 4c — Isolated UART label smoke
+
+**Що зроблено**: додано окремий binary для перевірки supervised label input через USB serial / UART0 без sensor path, MicroFlow, ReplayBuffer, OnlineLayer або CL update.
+
+**Додано**:
+
+- [`src/bin/uart_label_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/uart_label_smoke.rs:1)
+  - приймає single-character labels `0..5`
+  - newline/space/tab ігноруються
+  - invalid bytes логуються окремо
+  - heartbeat `UART_SMOKE tick=... labels=... invalid=...` підтверджує, що loop не блокується
+- `esp-hal` feature `unstable`
+  - потрібний для public `Uart::read_buffered(...)`
+  - direct UART register hacks не використовувались
+
+**Рішення**: `read_buffered(...)` використано замість `read(...)`, бо `read(...)` у `esp-hal` блокується, якщо FIFO порожній. Це саме та помилка, яка зламала попередню широку інтеграцію в `main.rs`.
+
+**Межі кроку**:
+
+- `main.rs` не змінювався
+- labels ще не підключені до `ReplayBuffer`
+- CL loop у sensor/inference path ще не інтегрований
+- persistence/NVS/flash writes не додавались
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --bin uart_label_smoke
+. $HOME/export-esp.sh && cargo build
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 35s cargo run --bin uart_label_smoke
+```
+
+**Build / flash**:
+
+- `cargo build --bin uart_label_smoke` — success
+- `cargo build` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- `uart_label_smoke` flashed successfully
+- app / partition size: `92,752 / 4,128,768 bytes`, тобто `2.25%`
+
+**Hardware smoke output**:
+
+```text
+uart label smoke started
+send one-character labels over UART0/USB serial: 0..5
+UART_SMOKE tick=1 labels=0 invalid=0
+UART_SMOKE tick=7 labels=0 invalid=0
+LABEL_RX label=0 name=Walking total_labels=1
+LABEL_RX label=4 name=Sitting total_labels=2
+LABEL_RX label=5 name=Standing total_labels=3
+LABEL_INVALID byte=120 total_invalid=1
+UART_SMOKE tick=10 labels=3 invalid=1
+UART_SMOKE tick=23 labels=3 invalid=1
+```
+
+**Висновок**:
+
+- UART label input працює в isolated smoke
+- loop не зависає без input
+- логування і прийом labels через той самий UART0/USB serial працюють для короткого smoke
+- наступний крок: окремий CL smoke, який з'єднає synthetic/latest feature vector + UART label + `ReplayBuffer32.push(...)`, але все ще не в `main.rs`
+
+## Фаза 4d — Isolated UART + ReplayBuffer + OnlineLayer smoke
+
+**Що зроблено**: додано окремий binary для перевірки стикування `UART label -> ReplayBuffer32.push(...) -> sample_balanced_batch(...) -> OnlineLayer32.backward_batch(...)`.
+
+**Додано**:
+
+- [`src/bin/uart_replay_smoke.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/uart_replay_smoke.rs:1)
+  - приймає single-character labels `0..5` через UART0/USB serial
+  - генерує synthetic `f32[32]` features для label/sample index
+  - додає sample в `ReplayBuffer32`
+  - активний policy: `Reservoir`
+  - запускає `OnlineLayer32.backward_batch()` кожні `K=10` валідних labels
+  - логування `LABEL`, `TRAIN`, `UART_REPLAY_SMOKE`
+
+**Межі кроку**:
+
+- `main.rs` не змінювався
+- `MPU6050` не використовується
+- `MicroFlow` не використовується
+- features synthetic, не real/latest inference features
+- persistence/NVS/flash writes не додавались
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --bin uart_replay_smoke
+. $HOME/export-esp.sh && cargo build
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 45s cargo run --bin uart_replay_smoke
+```
+
+**Build / flash**:
+
+- `cargo build --bin uart_replay_smoke` — success
+- `cargo build` — success
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- `uart_replay_smoke` flashed successfully
+- app / partition size: `113,264 / 4,128,768 bytes`, тобто `2.74%`
+
+**Hardware smoke output**:
+
+```text
+uart replay smoke started
+policy=reservoir, labels_per_update=10, batch_size=12, lr=0.001
+UART_REPLAY_SMOKE tick=7 labels=0 train_steps=0 buffer_len=0 invalid=0
+LABEL label=0 name=Walking added=1 class_len=1 buffer_len=1 push_us=45 total_seen=1
+LABEL label=1 name=Jogging added=1 class_len=1 buffer_len=2 push_us=5 total_seen=2
+LABEL label=2 name=Upstairs added=1 class_len=1 buffer_len=3 push_us=2 total_seen=3
+LABEL label=3 name=Downstairs added=1 class_len=1 buffer_len=4 push_us=2 total_seen=4
+LABEL label=4 name=Sitting added=1 class_len=1 buffer_len=5 push_us=2 total_seen=5
+LABEL label=5 name=Standing added=1 class_len=1 buffer_len=6 push_us=1 total_seen=6
+LABEL label=0 name=Walking added=1 class_len=2 buffer_len=7 push_us=1 total_seen=7
+LABEL label=1 name=Jogging added=1 class_len=2 buffer_len=8 push_us=1 total_seen=8
+LABEL label=2 name=Upstairs added=1 class_len=2 buffer_len=9 push_us=1 total_seen=9
+LABEL label=3 name=Downstairs added=1 class_len=2 buffer_len=10 push_us=2 total_seen=10
+TRAIN policy=reservoir step=1 batch_len=12 sample_us=57 update_us=806 total_seen=10 buffer_len=10
+LABEL_INVALID byte=54 total_invalid=1
+LABEL_INVALID byte=55 total_invalid=2
+LABEL_INVALID byte=56 total_invalid=3
+LABEL_INVALID byte=57 total_invalid=4
+TRAIN policy=reservoir step=2 batch_len=12 sample_us=11 update_us=560 total_seen=20 buffer_len=20
+UART_REPLAY_SMOKE tick=32 labels=20 train_steps=2 buffer_len=20 invalid=4
+```
+
+**Висновок**:
+
+- `UART -> ReplayBuffer32 -> OnlineLayer32 update` працює на ESP32 в ізольованому режимі
+- `read_buffered()` не блокує loop
+- replay insert має малий cost (`~1-45 us`, steady `1-2 us`)
+- train update cost у цьому smoke: `560-806 us`
+- наступний маленький крок: повторити той самий isolated smoke з `FIFO` policy або зробити compile-time перемикання policy для експериментів, усе ще без `main.rs`
