@@ -1,0 +1,53 @@
+{
+  "label_push_us": {
+    "count": 10,
+    "max": 62.0,
+    "mean": 16.2,
+    "min": 6.0
+  },
+  "modes": {
+    "reservoir": 30
+  },
+  "pred_head_us": {
+    "count": 17,
+    "max": 180.0,
+    "mean": 94.3529411764706,
+    "min": 84.0
+  },
+  "pred_infer_us": {
+    "count": 17,
+    "max": 173131.0,
+    "mean": 172413.0588235294,
+    "min": 172294.0
+  },
+  "resources": [
+    {
+      "batch_size": 12,
+      "feature_dim": 32,
+      "mode": "reservoir",
+      "persistence": "off",
+      "replay_ram_est": 12288,
+      "slots_per_class": 16,
+      "tag": "RESOURCE"
+    }
+  ],
+  "rows": {
+    "EXPERIMENT": 1,
+    "LABEL": 10,
+    "PRED": 17,
+    "RESOURCE": 1,
+    "TRAIN": 1
+  },
+  "train_sample_us": {
+    "count": 1,
+    "max": 59.0,
+    "mean": 59.0,
+    "min": 59.0
+  },
+  "train_update_us": {
+    "count": 1,
+    "max": 681.0,
+    "mean": 681.0,
+    "min": 681.0
+  }
+}

@@ -2265,3 +2265,78 @@ DEVLOG_train.csv
 
 - parser готовий для коротких і довших experiment sessions
 - наступний маленький крок: зробити перші контрольовані raw log captures для `no_adapt`, `reservoir`, `fifo`, а потім прогнати їх через parser
+
+## Фаза 5b — Controlled dry-run captures for no_adapt / reservoir / FIFO
+
+**Що зроблено**: виконано короткий контрольований hardware dry-run для трьох режимів і пропарсено raw serial logs у CSV/JSON.
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- git не чіпався
+- сенсор лежав нерухомо; це не фінальний accuracy experiment, а перевірка pipeline збору логів
+- для CL dry-run надсилались labels `4` (`Sitting`), бо плата й MPU6050 були нерухомі
+
+**Команди**:
+
+```bash
+script -q -c 'timeout 35s espflash monitor --chip esp32 --port /dev/ttyUSB0 --non-interactive --elf target/xtensa-esp32-none-elf/debug/esp32_cl_har' logs/raw/no_adapt_dryrun_2026-05-09.txt
+
+script -q -c "timeout 55s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" logs/raw/reservoir_dryrun_2026-05-09.txt
+
+script -q -c "timeout 55s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har'" logs/raw/fifo_dryrun_2026-05-09.txt
+
+python3 scripts/parse_experiment_logs.py logs/raw/no_adapt_dryrun_2026-05-09.txt --out-dir logs/parsed/no_adapt
+python3 scripts/parse_experiment_logs.py logs/raw/reservoir_dryrun_2026-05-09.txt --out-dir logs/parsed/reservoir
+python3 scripts/parse_experiment_logs.py logs/raw/fifo_dryrun_2026-05-09.txt --out-dir logs/parsed/fifo
+```
+
+**Hardware output summary**:
+
+```text
+no_adapt:
+  rows: EXPERIMENT=1 RESOURCE=1 PRED=11 LABEL=0 TRAIN=0
+  pred_infer_us mean=172460.45 min=172396 max=173103
+  pred_head_us mean=110.09 min=104 max=160
+  resource replay_ram_est=0
+
+reservoir:
+  app_size=136384 / 4128768 bytes = 3.30%
+  rows: EXPERIMENT=1 RESOURCE=1 PRED=17 LABEL=10 TRAIN=1
+  pred_infer_us mean=172413.06 min=172294 max=173131
+  pred_head_us mean=94.35 min=84 max=180
+  label_push_us mean=16.2 min=6 max=62
+  train_sample_us=59
+  train_update_us=681
+  resource replay_ram_est=12288
+
+fifo:
+  app_size=136384 / 4128768 bytes = 3.30%
+  rows: EXPERIMENT=1 RESOURCE=1 PRED=17 LABEL=10 TRAIN=1
+  pred_infer_us mean=172414.35 min=172306 max=173147
+  pred_head_us mean=103.29 min=96 max=176
+  label_push_us mean=14.0 min=6 max=53
+  train_sample_us=59
+  train_update_us=669
+  resource replay_ram_est=12288
+```
+
+**Generated files**:
+
+```text
+logs/raw/no_adapt_dryrun_2026-05-09.txt
+logs/raw/reservoir_dryrun_2026-05-09.txt
+logs/raw/fifo_dryrun_2026-05-09.txt
+
+logs/parsed/no_adapt/no_adapt_dryrun_2026-05-09_*.csv/json
+logs/parsed/reservoir/reservoir_dryrun_2026-05-09_*.csv/json
+logs/parsed/fifo/fifo_dryrun_2026-05-09_*.csv/json
+```
+
+**Висновок**:
+
+- collection pipeline працює end-to-end: raw serial log -> parser -> CSV/summary JSON
+- `no_adapt`, `reservoir`, `fifo` мають стабільні `EXPERIMENT / RESOURCE / PRED / LABEL / TRAIN` rows
+- CL overhead у dry-run дуже малий відносно MicroFlow-32 inference: update приблизно `0.67-0.68 ms` проти feature extraction приблизно `172 ms`
+- наступний маленький крок: провести короткий pilot experiment з реальною розміткою рухів або записати rehearsal protocol для фінальних сесій
