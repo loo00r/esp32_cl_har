@@ -2074,3 +2074,50 @@ online32 forward ok: attempt=17, online_us=89, pred=4(Sitting), confidence=0.994
   - replay push: steady `~2-6 us`
   - train update: `665 us` у цьому smoke
 - наступний маленький крок: hardware smoke `main.rs` з `cl_uart_labels,replay_fifo_policy`, щоб підтвердити FIFO у повному sensor/inference loop
+
+## Фаза 4g — Full `main.rs` CL smoke with FIFO policy
+
+**Що зроблено**: перевірено повний `main.rs` RAM-only CL loop у `FIFO` режимі через feature flags `microflow32_backend,cl_uart_labels,replay_fifo_policy`.
+
+**Межі кроку**:
+
+- нової логіки не додавалось
+- `main.rs` уже мав feature-gated CL loop з попереднього кроку
+- перевірка сфокусована тільки на FIFO policy у повному sensor/inference loop
+- persistence/NVS/flash writes не додавались
+
+**Команда**:
+
+```bash
+. $HOME/export-esp.sh && timeout 55s cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har
+```
+
+**Build / flash**:
+
+- build перед flash — success
+- FIFO CL main flashed successfully
+- app / partition size: `135,424 / 4,128,768 bytes`, тобто `3.28%`
+
+**Hardware smoke output**:
+
+```text
+mpu6050 detected at 0x68, WHO_AM_I=0x70
+phase 3 streaming path ready: backend=microflow-fullconv32-feature-extractor
+phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy=fifo, labels_per_update=10, batch_size=12, lr=0.001, persistence=off
+microflow feature ok: attempt=1, inference_us=173143
+online32 forward ok: attempt=1, online_us=176, pred=4(Sitting), confidence=0.994474
+LABEL label=4 name=Sitting added=1 class_len=1 buffer_len=1 push_us=50 total_seen=1 attempt=3
+LABEL label=4 name=Sitting added=1 class_len=8 buffer_len=8 push_us=6 total_seen=8 attempt=3
+LABEL label=4 name=Sitting added=1 class_len=10 buffer_len=10 push_us=10 total_seen=10 attempt=4
+TRAIN policy=fifo step=1 batch_len=12 sample_us=63 update_us=685 total_seen=10 buffer_len=10 attempt=4
+microflow latency stats: attempts=10, min_us=172469, mean_us=172563, max_us=173143
+microflow feature ok: attempt=17, inference_us=172496
+online32 forward ok: attempt=17, online_us=105, pred=4(Sitting), confidence=0.994463
+```
+
+**Висновок**:
+
+- full `main.rs` CL loop працює і з `FIFO`
+- після `TRAIN policy=fifo` firmware не завис і продовжив inference до timeout
+- `reservoir` і `FIFO` тепер обидва підтверджені у повному sensor/inference loop
+- наступний маленький крок: додати мінімальний experiment-mode logging для `No adaptation / FIFO / Reservoir`, щоб короткі сесії було легше порівнювати без зміни математики
