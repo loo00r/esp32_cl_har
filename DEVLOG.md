@@ -2192,3 +2192,76 @@ PRED mode=reservoir attempt=13 class=4 label=Sitting conf=0.99455464 infer_us=17
 - `RESOURCE` вже містить estimated replay RAM (`12288` bytes для `6 x 16 x 32 x f32`)
 - `PRED/LABEL/TRAIN` можна напряму парсити Python-скриптом у таблиці latency/update/resource
 - наступний маленький крок: зробити короткий parser script або notebook cell для цих log tags перед довшими сесіями
+
+## Фаза 5a — Experiment log parser
+
+**Що зроблено**: додано stdlib-only parser для stable firmware log tags, щоб raw serial logs перетворювати в CSV таблиці для експериментів і статті.
+
+**Додано**:
+
+- [`scripts/parse_experiment_logs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_experiment_logs.py:1)
+  - парсить `EXPERIMENT`, `RESOURCE`, `PRED`, `LABEL`, `TRAIN`
+  - прибирає ANSI color codes з `espflash monitor`
+  - ігнорує bootloader/debug text і markdown placeholders
+  - пише окремі CSV:
+    - `<stem>_experiment.csv`
+    - `<stem>_resource.csv`
+    - `<stem>_pred.csv`
+    - `<stem>_label.csv`
+    - `<stem>_train.csv`
+  - пише `<stem>_summary.json` з counts і latency/update summary
+
+**Приклад використання**:
+
+```bash
+python3 scripts/parse_experiment_logs.py logs/no_adapt_session.txt --out-dir parsed_logs/no_adapt
+python3 scripts/parse_experiment_logs.py logs/reservoir_session.txt --out-dir parsed_logs/reservoir
+python3 scripts/parse_experiment_logs.py logs/fifo_session.txt --out-dir parsed_logs/fifo
+```
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- parser не потребує `pandas`
+- plots ще не генеруються
+
+**Команди**:
+
+```bash
+python3 -m py_compile scripts/parse_experiment_logs.py
+python3 scripts/parse_experiment_logs.py DEVLOG.md --out-dir /tmp/esp32_cl_har_parsed_devlog
+```
+
+**Smoke output**:
+
+```text
+rows:
+  EXPERIMENT: 2
+  RESOURCE: 2
+  PRED: 4
+  LABEL: 28
+  TRAIN: 8
+modes:
+  no_adapt
+  reservoir
+pred_infer_us mean: 172758.75
+pred_head_us mean: 134.5
+train_update_us mean: 682.14
+```
+
+**Generated files у smoke test**:
+
+```text
+DEVLOG_experiment.csv
+DEVLOG_label.csv
+DEVLOG_pred.csv
+DEVLOG_resource.csv
+DEVLOG_summary.json
+DEVLOG_train.csv
+```
+
+**Висновок**:
+
+- parser готовий для коротких і довших experiment sessions
+- наступний маленький крок: зробити перші контрольовані raw log captures для `no_adapt`, `reservoir`, `fifo`, а потім прогнати їх через parser
