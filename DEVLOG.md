@@ -2340,3 +2340,183 @@ logs/parsed/fifo/fifo_dryrun_2026-05-09_*.csv/json
 - `no_adapt`, `reservoir`, `fifo` мають стабільні `EXPERIMENT / RESOURCE / PRED / LABEL / TRAIN` rows
 - CL overhead у dry-run дуже малий відносно MicroFlow-32 inference: update приблизно `0.67-0.68 ms` проти feature extraction приблизно `172 ms`
 - наступний маленький крок: провести короткий pilot experiment з реальною розміткою рухів або записати rehearsal protocol для фінальних сесій
+
+## Фаза 5c — Dry-run comparison table and 2-class pilot protocol
+
+**Що зроблено**: додано helper для зведення кількох parsed summary JSON у одну comparison CSV і зафіксовано перший реальний pilot protocol.
+
+**Додано**:
+
+- [`scripts/summarize_experiment_runs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/summarize_experiment_runs.py:1)
+  - читає `*_summary.json` після `parse_experiment_logs.py`
+  - формує одну CSV-таблицю для `no_adapt / fifo / reservoir`
+  - виводить `pred_rows`, `label_rows`, `train_rows`, `replay_ram_est`, latency means, update means
+  - рахує `cl_update_vs_infer_pct`
+  - сортує режими в порядку `no_adapt -> fifo -> reservoir`
+
+**Команди**:
+
+```bash
+python3 -m py_compile scripts/summarize_experiment_runs.py
+
+python3 scripts/summarize_experiment_runs.py \
+  logs/parsed/no_adapt/no_adapt_dryrun_2026-05-09_summary.json \
+  logs/parsed/reservoir/reservoir_dryrun_2026-05-09_summary.json \
+  logs/parsed/fifo/fifo_dryrun_2026-05-09_summary.json \
+  --out-csv logs/parsed/dryrun_comparison_2026-05-09.csv
+```
+
+**Generated comparison CSV**:
+
+```text
+logs/parsed/dryrun_comparison_2026-05-09.csv
+```
+
+**Dry-run comparison summary**:
+
+```text
+mode       pred_rows  label_rows  train_rows  replay_ram_est  infer_us_mean  train_update_us  update_vs_infer
+no_adapt   11         0           0           0               172460.455     -                -
+fifo       17         10          1           12288           172414.353     669              0.388%
+reservoir  17         10          1           12288           172413.059     681              0.395%
+```
+
+**Pilot 2-class protocol**:
+
+Мета: не фінальна accuracy, а перший реальний sanity check для adaptation на русі.
+
+```text
+Classes:
+  0 = Walking label slot, used here for standing-like small movement
+  4 = Sitting
+
+Fixed firmware settings:
+  feature_dim = 32
+  labels_per_update K = 10
+  batch_size = 12
+  replay slots = 16/class
+  persistence = off
+
+Modes:
+  1. no_adapt
+  2. fifo
+  3. reservoir
+
+Recommended capture:
+  no_adapt:
+    - 30-60 s Sitting, no labels
+    - 30-60 s standing-like small movement, no labels
+
+  fifo:
+    - start stationary Sitting, send 10-20 labels "4"
+    - standing-like small movement, send 10-20 labels "0"
+    - keep logging predictions after at least one TRAIN
+
+  reservoir:
+    - same sequence as fifo
+    - same approximate movement and label counts
+
+Label input:
+  send single characters over UART:
+    4 for Sitting
+    0 for the second standing-like movement segment
+```
+
+**Висновок**:
+
+- dry-run summaries тепер зводяться в одну таблицю без ручного копіювання
+- наступний execution step: провести короткий `Sitting` vs standing-like small movement pilot capture і пропарсити його тим самим pipeline
+
+## Фаза 5d — 2-class pilot capture: Sitting vs standing-like small movement
+
+**Що зроблено**: виконано перший реальний 2-class pilot з фізичним рухом сенсора для `no_adapt`, `fifo`, `reservoir`.
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- persistence/NVS/flash state не додавались
+- це pilot sanity check, не фінальний accuracy experiment
+- другий segment фізично був standing-like small movement, а не повноцінний `Walking`: рух був обмежений USB-кабелем біля комп'ютера
+- labels для CL надсилались burst-ами:
+  - `4444444444` для `Sitting`
+  - `0000000000` для другого standing-like movement segment
+- через burst labels частина labels прив'язана до latest feature vector, а не рівномірно до всього segment; для фінальних сесій потрібен рівномірніший label protocol
+
+**Команди**:
+
+```bash
+script -q -c "timeout 110s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har'" logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt
+
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/no_adapt
+
+script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har'" logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt
+
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/fifo
+
+script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt
+
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/reservoir
+
+python3 scripts/summarize_experiment_runs.py \
+  logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_summary.json \
+  logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_summary.json \
+  logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_summary.json \
+  --out-csv logs/parsed/pilot_2class/pilot_2class_comparison_2026-05-09.csv
+```
+
+**Generated files**:
+
+```text
+logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt
+logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt
+logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt
+
+logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_*.csv/json
+logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_*.csv/json
+logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_*.csv/json
+logs/parsed/pilot_2class/pilot_2class_comparison_2026-05-09.csv
+```
+
+**Pilot comparison summary**:
+
+```text
+mode       pred_rows  label_rows  train_rows  replay_ram_est  infer_us_mean  train_update_us_mean  update_vs_infer
+no_adapt   45         0           0           0               172508.289     -                     -
+fifo       50         20          2           12288           172416.680     664.5                 0.385%
+reservoir  50         20          2           12288           172274.080     658.0                 0.382%
+```
+
+**Prediction class distribution**:
+
+```text
+no_adapt:
+  Sitting=40
+  Standing=5
+
+fifo:
+  Sitting=43
+  Standing=7
+
+reservoir:
+  Sitting=21
+  Standing=17
+  Upstairs=12
+```
+
+**Hardware observations**:
+
+- усі три режими booted, MPU6050 detected, MicroFlow-32 inference працював
+- FIFO і reservoir прийняли по `20` labels і зробили по `2` train updates
+- firmware не зависала після train updates
+- standing-like movement чітко видно в accelerometer values і feature changes
+- другий segment був standing-like small movement rather than full `Walking`, тому predictions як `Standing`/`Upstairs` є правдоподібними і не мають інтерпретуватись як Walking failure
+- reservoir після labels другого segment сильніше змістив prediction distribution, ніж FIFO
+
+**Висновок**:
+
+- experimental pipeline для реального руху працює end-to-end
+- CL overhead лишається дуже малим: приблизно `0.38-0.39%` від MicroFlow-32 inference time
+- поточний pilot підтвердив real-device feasibility для supervised RAM-only CL loop, але не є фінальним HAR accuracy result
+- full `Walking` accuracy можна залишити на later/optional experiment з кращою фізичною свободою руху
+- наступний маленький крок: додати post-processing script, який оцінює predictions по вручну заданих часових/attempt сегментах
