@@ -2121,3 +2121,74 @@ online32 forward ok: attempt=17, online_us=105, pred=4(Sitting), confidence=0.99
 - після `TRAIN policy=fifo` firmware не завис і продовжив inference до timeout
 - `reservoir` і `FIFO` тепер обидва підтверджені у повному sensor/inference loop
 - наступний маленький крок: додати мінімальний experiment-mode logging для `No adaptation / FIFO / Reservoir`, щоб короткі сесії було легше порівнювати без зміни математики
+
+## Фаза 4h — Stable experiment log tags
+
+**Що зроблено**: додано стабільні plain-text log tags для парсингу коротких експериментальних сесій `no_adapt / reservoir / fifo`.
+
+**Зміна**:
+
+- [`src/bin/main.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/main.rs:1)
+  - startup logs:
+    - `EXPERIMENT ...`
+    - `RESOURCE ...`
+  - prediction logs:
+    - `PRED mode=... attempt=... class=... label=... conf=... infer_us=... head_us=...`
+  - CL logs:
+    - `LABEL mode=... label=... buffer_len=... push_us=...`
+    - `TRAIN mode=... policy=... batch_len=... sample_us=... update_us=...`
+
+**Межі кроку**:
+
+- математика не змінювалась
+- replay policy не змінювався
+- UART protocol не змінювався
+- persistence/NVS/flash writes не додавались
+
+**Команди**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo build --features microflow32_backend,cl_uart_labels --bin esp32_cl_har
+. $HOME/export-esp.sh && cargo build --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 35s cargo run --features microflow32_backend --bin esp32_cl_har
+. $HOME/export-esp.sh && timeout 45s cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har
+```
+
+**Build / flash**:
+
+- `cargo build --features microflow32_backend --bin esp32_cl_har` — success
+- `cargo build --features microflow32_backend,cl_uart_labels --bin esp32_cl_har` — success
+- `cargo build --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har` — success
+- no-adapt main flashed successfully
+- reservoir CL main flashed successfully
+- no-adapt app / partition size: `127,408 / 4,128,768 bytes`, тобто `3.09%`
+- reservoir CL app / partition size: `136,384 / 4,128,768 bytes`, тобто `3.30%`
+
+**No-adapt hardware output**:
+
+```text
+EXPERIMENT mode=no_adapt labels=off policy=none feature_dim=32 persistence=off
+RESOURCE mode=no_adapt replay_ram_est=0 feature_dim=32 slots_per_class=0 batch_size=0 persistence=off
+PRED mode=no_adapt attempt=1 class=4 label=Sitting conf=0.994474 infer_us=173103 head_us=160
+PRED mode=no_adapt attempt=8 class=4 label=Sitting conf=0.9944524 infer_us=172396 head_us=105
+```
+
+**Reservoir CL hardware output**:
+
+```text
+EXPERIMENT mode=reservoir labels=uart policy=reservoir feature_dim=32 labels_per_update=10 persistence=off
+RESOURCE mode=reservoir replay_ram_est=12288 feature_dim=32 slots_per_class=16 batch_size=12 persistence=off
+PRED mode=reservoir attempt=1 class=4 label=Sitting conf=0.9944524 infer_us=173131 head_us=180
+LABEL mode=reservoir label=4 name=Sitting added=1 class_len=1 buffer_len=1 push_us=61 total_seen=1 attempt=5
+LABEL mode=reservoir label=4 name=Sitting added=1 class_len=10 buffer_len=10 push_us=5 total_seen=10 attempt=6
+TRAIN mode=reservoir policy=reservoir step=1 batch_len=12 sample_us=59 update_us=685 total_seen=10 buffer_len=10 attempt=6
+PRED mode=reservoir attempt=13 class=4 label=Sitting conf=0.99455464 infer_us=172405 head_us=93
+```
+
+**Висновок**:
+
+- `no_adapt` і `reservoir` мають grep-friendly logs для experiment parsing
+- `RESOURCE` вже містить estimated replay RAM (`12288` bytes для `6 x 16 x 32 x f32`)
+- `PRED/LABEL/TRAIN` можна напряму парсити Python-скриптом у таблиці latency/update/resource
+- наступний маленький крок: зробити короткий parser script або notebook cell для цих log tags перед довшими сесіями

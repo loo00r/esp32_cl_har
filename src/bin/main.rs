@@ -37,13 +37,7 @@ use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
 use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowFeatureBackend;
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp32_cl_har::model::CLASS_LABELS;
-#[cfg(all(
-    feature = "microflow32_backend",
-    not(feature = "microflow_backend"),
-    feature = "cl_uart_labels"
-))]
-use esp32_cl_har::model::MICROFLOW32_FEATURE_TENSOR_SIZE;
+use esp32_cl_har::model::{CLASS_LABELS, MICROFLOW32_FEATURE_TENSOR_SIZE};
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
 use esp32_cl_har::online_layer::OnlineLayer32;
 #[cfg(all(
@@ -51,7 +45,7 @@ use esp32_cl_har::online_layer::OnlineLayer32;
     not(feature = "microflow_backend"),
     feature = "cl_uart_labels"
 ))]
-use esp32_cl_har::replay_buffer::{ReplayBuffer32, ReplayStrategy};
+use esp32_cl_har::replay_buffer::{REPLAY_SLOTS_PER_CLASS, ReplayBuffer32, ReplayStrategy};
 use log::info;
 #[cfg(all(
     feature = "microflow32_backend",
@@ -132,6 +126,35 @@ fn argmax(values: &[f32]) -> usize {
         idx += 1;
     }
     best_idx
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    not(feature = "cl_uart_labels")
+))]
+fn experiment_mode_name() -> &'static str {
+    "no_adapt"
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    feature = "replay_fifo_policy"
+))]
+fn experiment_mode_name() -> &'static str {
+    "fifo"
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    not(feature = "replay_fifo_policy")
+))]
+fn experiment_mode_name() -> &'static str {
+    "reservoir"
 }
 
 #[cfg(all(
@@ -232,15 +255,51 @@ fn main() -> ! {
     #[cfg(all(
         feature = "microflow32_backend",
         not(feature = "microflow_backend"),
+        not(feature = "cl_uart_labels")
+    ))]
+    {
+        info!(
+            "EXPERIMENT mode={} labels=off policy=none feature_dim={} persistence=off",
+            experiment_mode_name(),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+        );
+        info!(
+            "RESOURCE mode={} replay_ram_est=0 feature_dim={} slots_per_class=0 batch_size=0 persistence=off",
+            experiment_mode_name(),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+        );
+    }
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
         feature = "cl_uart_labels"
     ))]
-    info!(
-        "phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy={}, labels_per_update={}, batch_size={}, lr={}, persistence=off",
-        replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
-        CL_LABELS_PER_UPDATE,
-        CL_BATCH_SIZE,
-        CL_LEARNING_RATE,
-    );
+    {
+        let replay_ram_est =
+            CLASS_LABELS.len() * REPLAY_SLOTS_PER_CLASS * MICROFLOW32_FEATURE_TENSOR_SIZE * 4;
+        info!(
+            "phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy={}, labels_per_update={}, batch_size={}, lr={}, persistence=off",
+            replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
+            CL_LABELS_PER_UPDATE,
+            CL_BATCH_SIZE,
+            CL_LEARNING_RATE,
+        );
+        info!(
+            "EXPERIMENT mode={} labels=uart policy={} feature_dim={} labels_per_update={} persistence=off",
+            experiment_mode_name(),
+            replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+            CL_LABELS_PER_UPDATE,
+        );
+        info!(
+            "RESOURCE mode={} replay_ram_est={} feature_dim={} slots_per_class={} batch_size={} persistence=off",
+            experiment_mode_name(),
+            replay_ram_est,
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+            REPLAY_SLOTS_PER_CLASS,
+            CL_BATCH_SIZE,
+        );
+    }
 
     let mut next_sample_at = Instant::now() + SAMPLE_PERIOD;
     let mut sample_count: u32 = 0;
@@ -389,6 +448,16 @@ fn main() -> ! {
                                     CLASS_LABELS[predicted_idx],
                                     probs[predicted_idx],
                                 );
+                                info!(
+                                    "PRED mode={} attempt={} class={} label={} conf={} infer_us={} head_us={}",
+                                    experiment_mode_name(),
+                                    inference_attempts,
+                                    predicted_idx,
+                                    CLASS_LABELS[predicted_idx],
+                                    probs[predicted_idx],
+                                    inference_us,
+                                    online_us,
+                                );
 
                                 #[cfg(feature = "cl_uart_labels")]
                                 match label_uart.read_buffered(&mut label_uart_buf) {
@@ -418,7 +487,8 @@ fn main() -> ! {
                                             let class_len = replay.class_len(label).unwrap_or(0);
 
                                             info!(
-                                                "LABEL label={} name={} added={} class_len={} buffer_len={} push_us={} total_seen={} attempt={}",
+                                                "LABEL mode={} label={} name={} added={} class_len={} buffer_len={} push_us={} total_seen={} attempt={}",
+                                                experiment_mode_name(),
                                                 label,
                                                 CLASS_LABELS[usize::from(label)],
                                                 added as u8,
@@ -450,7 +520,8 @@ fn main() -> ! {
                                                 train_steps = train_steps.saturating_add(1);
                                                 labels_since_update = 0;
                                                 info!(
-                                                    "TRAIN policy={} step={} batch_len={} sample_us={} update_us={} total_seen={} buffer_len={} attempt={}",
+                                                    "TRAIN mode={} policy={} step={} batch_len={} sample_us={} update_us={} total_seen={} buffer_len={} attempt={}",
+                                                    experiment_mode_name(),
                                                     replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
                                                     train_steps,
                                                     batch_len,
