@@ -2855,3 +2855,371 @@ code cells compiled: 14
 - notebook готовий для ручного top-to-bottom запуску
 - головний analysis focus: `Sitting` vs upstairs-like vertical hand-motion pilot
 - plots/tables формуються без нових firmware changes і без rerun hardware experiments
+
+## Фаза 5i — Український audit результатів, таблиць і графіків
+
+**Що зроблено**: після повного перечитування `DEVLOG.md` додано окремий український технічний analysis note для Phase 5 results. Мета цього кроку — зафіксувати не загальні тези, а конкретну інтерпретацію вже згенерованих CSV, таблиць і графіків перед переходом до тексту статті.
+
+**Додано**:
+
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+  - межі інтерпретації поточних результатів
+  - список primary/secondary pilot data sources
+  - resource and CL overhead numbers для `Sitting` vs upstairs-like pilot
+  - segment-level interpretation для `no_adapt / FIFO / reservoir`
+  - пояснення кожного наявного графіка з `results/figures`
+  - allowed claims і forbidden claims для статті
+  - список того, що вже можна переносити в `Experimental Setup`, `Results`, `Discussion`
+  - список того, чого ще бракує
+  - наступний рекомендований маленький крок: attempt-level plots
+
+**Синхронізовано `PLAN.md`**:
+
+- `Згенерувати графіки matplotlib` позначено як виконане для основного `Sitting` vs upstairs-like pilot
+- додано виконаний пункт про український analysis audit
+- наступний графічний крок уточнено як `attempt-level plots prediction/confidence vs attempt`
+
+**Ключові зафіксовані числові результати**:
+
+```text
+MicroFlow-32 inference:
+  no_adapt   mean = 172.511911 ms
+  fifo       mean = 172.289640 ms
+  reservoir  mean = 172.324380 ms
+
+CL update:
+  fifo       mean = 666.5 us, overhead = 0.387%
+  reservoir  mean = 656.0 us, overhead = 0.381%
+
+Replay RAM:
+  6 classes x 16 slots/class x 32 f32 features = 12 KiB
+
+Upstairs-like segment accepted rate:
+  no_adapt   = 0.0000
+  fifo       = 0.8857
+  reservoir  = 0.9394
+```
+
+**Scientific wording зафіксовано**:
+
+- поточний результат є `real-device pilot sanity check`, не full `6-class HAR` benchmark
+- upstairs-like segment є vertical hand-motion біля ПК, не real staircase benchmark
+- `reservoir` показав трохи вищий accepted rate у pilot, але це не statistical superiority claim
+- головний publishable resource result: RAM-only CL update overhead менший за `1%` від `MicroFlow-32` inference time
+- persistence/NVS/flash state лишаються Future Work
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- Phase 5 тепер має не тільки raw/parsed results і notebook plots, а й український технічний audit для коректного перенесення результатів у статтю
+- наступний маленький крок: додати attempt-level plots для `prediction/confidence vs attempt`, щоб показати часову динаміку prediction shift після labels/train
+
+## Фаза 6a — Українська структура статті і mapping результатів
+
+**Що зроблено**: створено робочий outline статті українською мовою, який переводить accumulated `DEVLOG`/results матеріал у статейну структуру. Це не фінальний текст статті, а каркас для подальшого написання `Introduction`, `System Architecture`, `Experimental Setup`, `Results`, `Discussion` і `Conclusion`.
+
+**Додано**:
+
+- [`paper/article_structure_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/article_structure_uk.md:1)
+  - центральна ідея статті
+  - головний обережний claim
+  - список claims, які не можна робити
+  - рекомендована структура секцій
+  - mapping числових результатів у `Results`
+  - окреме формулювання ролі USB/UART тільки як limitation
+  - figure plan
+  - table plan
+  - заборонені наступні кроки в поточному sprint
+
+**Ключове змістове рішення**:
+
+```text
+USB/UART не є центральною темою статті.
+Це лише limitation поточного експериментального стенду.
+Центральна тема: minimal RAM-only replay-based CL pipeline на ESP32 з реальним MPU6050,
+resource profiling і pilot evidence prediction shift після supervised labels.
+```
+
+**Запропонована структура статті**:
+
+```text
+1. Introduction
+2. Related Work
+3. System Architecture
+4. Experimental Setup
+5. Results
+6. Discussion
+7. Conclusion
+```
+
+**Основний Results mapping**:
+
+- `5.1 Offline baseline and feature extractor selection`
+- `5.2 Runtime cost of RAM-only CL`
+- `5.3 Real-device pilot: Sitting vs upstairs-like motion`
+- `5.4 Prediction distribution shift`
+- `5.5 Secondary standing-like pilot`
+
+**Figure plan**:
+
+- system architecture diagram — треба зробити
+- `MicroFlow-64 vs MicroFlow-32 latency` — треба зробити
+- `fig_inference_latency_sit_up` — готово
+- `fig_cl_update_cost_sit_up` — готово
+- `fig_upstairs_like_shift_sit_up` — готово
+- `fig_prediction_distribution_upstairs_like` — готово
+- attempt-level `prediction/confidence vs attempt` — наступний маленький крок
+
+**Синхронізовано `PLAN.md`**:
+
+- у `Фазі 6` додано виконаний пункт про українську структуру статті і mapping результатів/графіків
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- напрям статті зафіксовано: не зациклюватись на USB/кабелі, не роздувати Bluetooth/persistence, а писати про ESP32 CL реалізацію, resource analysis і чесний pilot на реальному MPU6050
+- наступний практичний крок лишається технічно малим: attempt-level plots з уже наявних parsed logs
+
+## Фаза 5j — Attempt-level plots для `Sitting` vs upstairs-like pilot
+
+**Що зроблено**: існуючий paper-results notebook розширено секцією `Attempt-Level Dynamics`, без створення нового notebook. Також згенеровано готові PNG/PDF figures з уже parsed CSV для основного `Sitting` vs upstairs-like vertical hand-motion pilot.
+
+**Змінено**:
+
+- [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
+  - додано завантаження parsed `PRED`, `LABEL`, `TRAIN` CSV для `no_adapt`, `fifo`, `reservoir`
+  - додано `prediction class vs attempt`
+  - додано `confidence vs attempt`
+  - додано segment boundary markers між `sitting` і `upstairs_like`
+  - додано `TRAIN` markers для FIFO/reservoir
+
+**Generated figures**:
+
+```text
+results/figures/fig_prediction_class_attempt_sit_up.png
+results/figures/fig_prediction_class_attempt_sit_up.pdf
+results/figures/fig_confidence_attempt_sit_up.png
+results/figures/fig_confidence_attempt_sit_up.pdf
+```
+
+**Generated table**:
+
+```text
+results/tables/table_attempt_level_events_sit_up.csv
+```
+
+**Attempt markers**:
+
+```text
+mode       sitting   upstairs_like   labels attempts   train attempts
+no_adapt   1-18      19-45           -                 -
+fifo       1-15      16-50           8;9;26;27         9;27
+reservoir  1-17      18-50           9;10;27;28        10;28
+```
+
+**Validation**:
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+path = Path('notebooks/paper_results_analysis.ipynb')
+nb = json.loads(path.read_text(encoding='utf-8'))
+code_cells = [cell for cell in nb['cells'] if cell.get('cell_type') == 'code']
+for idx, cell in enumerate(code_cells, start=1):
+    source = ''.join(cell.get('source', []))
+    compile(source, f'{path}:code_cell_{idx}', 'exec')
+print(f'valid notebook json: {path}')
+print(f'code cells compiled: {len(code_cells)}')
+print(f'total cells: {len(nb["cells"])}')
+PY
+```
+
+Output:
+
+```text
+valid notebook json: notebooks/paper_results_analysis.ipynb
+code cells compiled: 17
+total cells: 35
+```
+
+**Scientific interpretation**:
+
+- `no_adapt` у `upstairs_like` segment лишається на class `Sitting`, хоча confidence падає під час руху
+- `fifo` і `reservoir` після supervised labels/train зміщують predictions у `Upstairs`/`Downstairs`
+- ці plots показують часову динаміку pilot, а не фінальну `6-class HAR` accuracy
+
+**Синхронізовано документацію**:
+
+- `PLAN.md`: attempt-level plots позначено виконаними
+- `results/analysis_notes_uk.md`: next step змінено на `MicroFlow-64 vs MicroFlow-32 latency plot`
+- `paper/article_structure_uk.md`: figure plan оновлено, attempt-level plots позначено готовими
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- Results section тепер має не тільки aggregate bar charts, а й attempt-level динаміку prediction/confidence для основного pilot
+- наступний малий графічний крок: окремий `MicroFlow-64 vs MicroFlow-32 latency` plot з уже зафіксованих DEVLOG values
+
+## Фаза 5k — `MicroFlow-64` vs `MicroFlow-32` latency ablation plot
+
+**Що зроблено**: існуючий paper-results notebook розширено секцією `MicroFlow Feature Extractor Latency Ablation`. З уже зафіксованих у `DEVLOG.md` hardware latency checkpoints згенеровано компактний графік, який пояснює, чому основний embedded CL path перейшов з `MicroFlow-64` на `MicroFlow-32`.
+
+**Джерела чисел**:
+
+- `MicroFlow-64`: `DEVLOG.md`, Phase 3j, 20-attempt streaming mean
+- `MicroFlow-32`: `DEVLOG.md`, Phase 3m, 20-attempt streaming mean
+
+**Змінено**:
+
+- [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
+  - додано latency ablation table
+  - додано bar plot `MicroFlow-64` vs `MicroFlow-32`
+  - додано коротку інтерпретацію, що `MicroFlow-32` є primary embedded path, а `MicroFlow-64` лишається reference
+
+**Generated files**:
+
+```text
+results/figures/fig_microflow_latency_ablation.png
+results/figures/fig_microflow_latency_ablation.pdf
+results/tables/table_microflow_latency_ablation.csv
+```
+
+**Табличні значення**:
+
+```text
+extractor     feature_dim  mean_latency_ms  replay_ram_kib  latency_reduction_vs_64_pct
+MicroFlow-64  64           298.683          24.0            0.0
+MicroFlow-32  32           172.017          12.0            42.408
+```
+
+**Interpretation**:
+
+- `MicroFlow-32` зменшує streaming feature extraction latency приблизно на `42.4%`
+- replay RAM estimate зменшується з `24 KiB` до `12 KiB`
+- це обґрунтовує використання `MicroFlow-32` як основного embedded path для CL experiments
+- `MicroFlow-64` не викидається, а лишається stronger/reference path
+
+**Validation**:
+
+```text
+valid notebook json: notebooks/paper_results_analysis.ipynb
+code cells compiled: 19
+total cells: 39
+```
+
+**Синхронізовано документацію**:
+
+- `PLAN.md`: `MicroFlow-64 vs MicroFlow-32 latency` plot позначено виконаним
+- `results/analysis_notes_uk.md`: next step змінено на `Results draft`
+- `paper/article_structure_uk.md`: figure plan оновлено, latency ablation позначено готовим
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- основний набір графіків для `Results` тепер покриває latency ablation, CL overhead, segment accepted rate, prediction distribution і attempt-level dynamics
+- наступний логічний крок: почати `Results` draft на основі вже готових tables/figures, без нових embedded features
+
+## Фаза 6b — Український `Results` draft
+
+**Що зроблено**: створено перший робочий draft секції `Results` українською мовою на основі вже готових таблиць, графіків і parsed experiment outputs. Це не додає нових експериментів і не змінює firmware; крок переводить Phase 5 artifacts у статейний текст.
+
+**Додано**:
+
+- [`paper/results_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/results_draft_uk.md:1)
+
+**Структура draft-у**:
+
+```text
+1. Offline baseline і вибір embedded feature extractor
+2. Runtime cost RAM-only continual learning
+3. Real-device pilot: Sitting vs upstairs-like vertical motion
+4. Prediction distribution і attempt-level dynamics
+5. Secondary pilot: Sitting vs standing-like small movement
+6. Summary of result claims
+7. Limitations visible from the results
+```
+
+**Головні використані артефакти**:
+
+```text
+results/figures/fig_microflow_latency_ablation.png
+results/figures/fig_inference_latency_sit_up.png
+results/figures/fig_cl_update_cost_sit_up.png
+results/figures/fig_segment_accepted_rate_sit_up.png
+results/figures/fig_upstairs_like_shift_sit_up.png
+results/figures/fig_prediction_distribution_upstairs_like.png
+results/figures/fig_prediction_class_attempt_sit_up.png
+results/figures/fig_confidence_attempt_sit_up.png
+
+results/tables/table_microflow_latency_ablation.csv
+results/tables/table_resource_overhead_sit_up.csv
+results/tables/table_prediction_distribution_sit_up.csv
+results/tables/table_attempt_level_events_sit_up.csv
+logs/parsed/pilot_sit_up/sit_up_segment_eval_2026-05-09.csv
+```
+
+**Ключові claims у draft-і**:
+
+- `MicroFlow-32` зменшує latency приблизно на `42.4%` проти `MicroFlow-64`
+- replay RAM estimate зменшується з `24 KiB` до `12 KiB`
+- RAM-only CL update коштує приблизно `0.66 ms`
+- CL update overhead менший за `1%` від `MicroFlow-32` feature extraction latency
+- upstairs-like pilot показує prediction shift після supervised labels:
+  - `no_adapt`: `0.0%`
+  - `FIFO`: `88.57%`
+  - `reservoir`: `93.94%`
+
+**Scope discipline у тексті**:
+
+- результат описано як feasibility / real-device pilot sanity check
+- не заявляється full `6-class HAR` benchmark
+- не заявляється real staircase benchmark
+- не заявляється statistical superiority reservoir над FIFO
+- USB/UART описано як limitation стенду, не як центральну тему
+- persistence/NVS/flash storage лишено Future Work
+
+**Синхронізовано `PLAN.md`**:
+
+- `Results draft на основі готових таблиць/графіків` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- секція `Results` тепер має перший coherent draft, який можна редагувати в текст статті
+- наступний логічний крок: підготувати `Experimental Setup` draft, щоб формально пояснити hardware, firmware modes, pilot protocol і metrics перед Results
