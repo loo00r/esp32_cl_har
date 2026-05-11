@@ -3223,3 +3223,306 @@ logs/parsed/pilot_sit_up/sit_up_segment_eval_2026-05-09.csv
 
 - секція `Results` тепер має перший coherent draft, який можна редагувати в текст статті
 - наступний логічний крок: підготувати `Experimental Setup` draft, щоб формально пояснити hardware, firmware modes, pilot protocol і metrics перед Results
+
+## Фаза 6c — Український `Experimental Setup` draft
+
+**Що зроблено**: створено перший робочий draft секції `Experimental Setup` українською мовою. Секція формально пояснює hardware, firmware stack, offline model preparation, ESP32 preprocessing, CL components, compared modes, label protocol, logging/parsing, pilot protocol, metrics і scope boundaries.
+
+**Додано**:
+
+- [`paper/experimental_setup_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/experimental_setup_draft_uk.md:1)
+
+**Структура draft-у**:
+
+```text
+1. Hardware platform
+2. Firmware stack
+3. Offline model preparation
+4. Sensor preprocessing on ESP32
+5. Continual learning components
+6. Compared modes
+7. Label protocol
+8. Logging and parsing
+9. Pilot protocol
+10. Metrics
+11. Scope boundaries
+```
+
+**Ключові зафіксовані параметри**:
+
+```text
+Hardware:
+  ESP32-WROOM-32 / ESP32-D0WD-V3 rev v3.1
+  240 MHz
+  4 MB Flash
+  320 KB SRAM class target
+  MPU6050 / GY-521
+  I2C SDA=GPIO21, SCL=GPIO22
+
+Firmware:
+  Rust 2024
+  no_std
+  esp-hal
+  xtensa-esp32-none-elf
+
+Windowing:
+  20 Hz sampling
+  80 x 3 window
+  int8[240] input
+
+CL:
+  MicroFlow-32 frozen feature extractor
+  OnlineLayer32
+  ReplayBuffer32
+  6 classes x 16 slots/class x 32 f32 features = 12 KiB
+  K=10 labels/update
+  batch_size=12
+  lr=0.001
+  persistence=off
+```
+
+**Pilot protocol зафіксовано**:
+
+- main pilot: `Sitting` vs `upstairs-like vertical hand-motion`
+- labels: `4` для `Sitting`, `2` для upstairs-like motion
+- modes: `no_adapt`, `FIFO`, `reservoir`
+- second segment описано як upstairs-like hand motion біля host PC, не real staircase benchmark
+- secondary pilot `Sitting vs standing-like small movement` лишається sanity check
+
+**Scope boundaries зафіксовано**:
+
+- setup підтримує claims про end-to-end ESP32 pipeline, RAM-only CL, FIFO/reservoir under same memory budget, CL overhead і pilot prediction shift
+- setup не підтримує claims про full `6-class HAR` benchmark, statistical superiority reservoir, real staircase benchmark, autonomous labeling, persistence або strict `20 Hz` inference throughput
+
+**Синхронізовано `PLAN.md`**:
+
+- `Experimental Setup draft` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- тепер є послідовна пара draft-ів: `Experimental Setup` перед `Results`
+- наступний логічний крок: підготувати `System Architecture` draft, щоб пояснити offline/embedded pipeline до експериментальної секції
+
+## Фаза 6d — Український `System Architecture` draft
+
+**Що зроблено**: створено перший робочий draft секції `System Architecture` українською мовою. Секція пояснює повний pipeline від offline training на PC до RAM-only CL loop на ESP32 і чітко відділяє frozen feature extraction, online head, replay storage та experiment modes.
+
+**Додано**:
+
+- [`paper/system_architecture_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/system_architecture_draft_uk.md:1)
+
+**Структура draft-у**:
+
+```text
+1. Overview
+2. Offline PC pipeline
+3. Deployment-oriented feature extractor
+4. ESP32 sensor and preprocessing path
+5. Frozen feature extraction on ESP32
+6. OnlineLayer32
+7. RAM-only ReplayBuffer32
+8. RAM-only CL loop
+9. Experiment modes as architecture variants
+10. Logging architecture
+11. Architectural boundaries and contribution
+12. Why this architecture fits ESP32
+```
+
+**Ключові архітектурні рішення зафіксовано**:
+
+- split architecture: PC training/export, ESP32 frozen inference + last-layer adaptation
+- `MicroFlow-32` є primary embedded feature extractor
+- `MicroFlow-64` лишається stronger/reference path
+- `OnlineLayer32` є єдиною trainable частиною на ESP32
+- `ReplayBuffer32` зберігає latent features, не raw IMU windows
+- `FIFO` і `reservoir-per-class` порівнюються під однаковим memory budget
+- CL state RAM-only, persistence/NVS/flash writes out of scope
+
+**Contribution boundary зафіксовано**:
+
+```text
+Не нова CNN архітектура.
+Не новий inference runtime.
+Не UART/Bluetooth protocol.
+
+Внесок:
+frozen feature extractor
++ Rust/no_std online head
++ RAM-only replay
++ FIFO/reservoir comparison
++ real MPU6050 pilot
++ resource measurements on ESP32
+```
+
+**Синхронізовано `PLAN.md`**:
+
+- `System Architecture draft` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- тепер є три узгоджені статейні draft-и: `System Architecture`, `Experimental Setup`, `Results`
+- наступний логічний крок: підготувати `Discussion` draft, бо він напряму спирається на вже сформульовані Results/limitations і допоможе не перебільшити claims
+
+## Фаза 6e — Український `Discussion` draft
+
+**Що зроблено**: створено перший робочий draft секції `Discussion` українською мовою. Секція інтерпретує результати, фіксує межі claims, пояснює роль USB/UART, persistence, FIFO/reservoir і future work без перебільшення результатів.
+
+**Додано**:
+
+- [`paper/discussion_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/discussion_draft_uk.md:1)
+
+**Структура draft-у**:
+
+```text
+1. Feasibility of RAM-only continual learning on ESP32
+2. Runtime bottleneck: feature extraction, not online update
+3. Why MicroFlow-32 became the primary embedded path
+4. Interpretation of FIFO vs reservoir
+5. What the real-device pilot demonstrates
+6. Domain shift and why adaptation is needed
+7. Label acquisition and UART limitations
+8. Why persistence is future work
+9. Limitations
+10. Future work
+11. Main interpretation
+```
+
+**Ключові інтерпретації зафіксовано**:
+
+- головний результат — feasibility/resource profile, не SOTA accuracy
+- online CL update дешевий відносно frozen feature extraction
+- `MicroFlow-32` обрано через latency/RAM trade-off, а не як scientific contribution
+- `FIFO` і `reservoir` обидва працюють під однаковим memory budget
+- reservoir виглядає promising у pilot, але statistical superiority не заявляється
+- real-device pilot демонструє prediction shift, не full `6-class HAR` benchmark
+- USB/UART є limitation стенду, не центральна тема статті
+- persistence/NVS/flash writes лишаються Future Work
+
+**Синхронізовано `PLAN.md`**:
+
+- `Discussion draft` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- тепер є чотири узгоджені draft-и: `System Architecture`, `Experimental Setup`, `Results`, `Discussion`
+- наступний логічний крок: підготувати `Conclusion` draft, а потім окремо `Introduction + Related Work`
+
+## Фаза 6f — Український `Conclusion` draft
+
+**Що зроблено**: створено перший робочий draft секції `Conclusion` українською мовою. Секція коротко підсумовує feasibility, architecture, resource result, real-device pilot, limitations і future work без розширення claims.
+
+**Додано**:
+
+- [`paper/conclusion_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/conclusion_draft_uk.md:1)
+
+**Ключові тези conclusion**:
+
+- мінімальний replay-based CL pipeline для IMU-HAR реалізовано на `ESP32-WROOM-32` у `Rust/no_std`
+- основний path: `MPU6050 -> MicroFlow-32 -> OnlineLayer32 -> ReplayBuffer32`
+- `MicroFlow-32` зменшує latency проти `MicroFlow-64` приблизно з `298.7 ms` до `172.0 ms`
+- replay RAM estimate зменшується з `24 KiB` до `12 KiB`
+- `OnlineLayer32.backward_batch()` з replay mini-batch коштує приблизно `0.66 ms`
+- CL update overhead нижчий за `1%` від feature extraction time
+- real-device pilot показує prediction shift після supervised labels
+- full `6-class HAR` benchmark, autonomous labels і persistence лишаються Future Work
+
+**Синхронізовано `PLAN.md`**:
+
+- `Conclusion draft` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- тепер є п'ять узгоджених draft-ів: `System Architecture`, `Experimental Setup`, `Results`, `Discussion`, `Conclusion`
+- наступний логічний крок: підготувати `Introduction + Related Work`, які мають зв'язати внесок з TinyML HAR, TinyOL/replay і сучасними складнішими HAR+CL роботами без SOTA-claim
+
+## Фаза 6g — Український `Introduction + Related Work` draft
+
+**Що зроблено**: створено перший робочий draft секцій `Introduction` і `Related Work` українською мовою. Перед написанням звірено точні назви й positioning для згаданих сучасних робіт: Kwon/LifeLearner, Fusco et al. on-device training/pruning, COOL 2026, PACL+ і OCL-HAR.
+
+**Додано**:
+
+- [`paper/introduction_related_work_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/introduction_related_work_draft_uk.md:1)
+
+**Структура draft-у**:
+
+```text
+Introduction
+Contributions
+
+Related Work:
+1. TinyML and on-device learning on microcontrollers
+2. Continual learning for mobile and embedded sensing
+3. Online continual learning for HAR
+4. On-device continual learning for HAR on MCU
+5. Positioning of this work
+Reference Notes
+```
+
+**Ключові related work references зафіксовано**:
+
+- `TinyOL: TinyML with Online-Learning on Microcontrollers` — TinyML online learning на MCU
+- Kwon et al. `LifeLearner` — hardware-aware meta CL, latent replay, product quantization, embedded platforms
+- Schiemer et al. `Online continual learning for human activity recognition` — HAR-specific OCL scenario
+- `PACL+` — proxy-anchor / contrastive learning / Gaussian replay для sensor-based HAR
+- Fusco et al. `On-device training and pruning for energy saving and continuous learning in resource-constrained MCUs` — ESP32/STM32, on-device pruning/training, energy/resource focus
+- `COOL: continual online on-device learning for human activity recognition enhanced by KANs` — найпряміший сучасний HAR+on-device CL MCU reference, KAN-based, STM32H743
+
+**Positioning зафіксовано**:
+
+```text
+Наша робота не претендує на SOTA HAR accuracy.
+Наша робота не конкурує напряму з COOL або LifeLearner за algorithmic complexity.
+Наша ніша:
+ESP32-WROOM-32 + real MPU6050 + Rust/no_std + MicroFlow-32 frozen extractor
++ OnlineLayer32 + RAM-only ReplayBuffer32 + FIFO/reservoir comparison
++ resource metrics + pilot prediction shift.
+```
+
+**Синхронізовано `PLAN.md`**:
+
+- `Introduction + Related Work draft` позначено виконаним у `Фазі 6`
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- git не чіпався
+
+**Висновок**:
+
+- тепер є повний набір українських draft-ів основних секцій статті: `Introduction + Related Work`, `System Architecture`, `Experimental Setup`, `Results`, `Discussion`, `Conclusion`
+- наступний логічний крок: зібрати unified article draft або зробити consistency pass між усіма section drafts
