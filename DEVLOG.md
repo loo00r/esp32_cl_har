@@ -2520,3 +2520,338 @@ reservoir:
 - поточний pilot підтвердив real-device feasibility для supervised RAM-only CL loop, але не є фінальним HAR accuracy result
 - full `Walking` accuracy можна залишити на later/optional experiment з кращою фізичною свободою руху
 - наступний маленький крок: додати post-processing script, який оцінює predictions по вручну заданих часових/attempt сегментах
+
+## Фаза 5e — Segment-level evaluator for pilot runs
+
+**Що зроблено**: додано post-processing script для оцінки parsed `PRED` rows по вручну заданих attempt ranges.
+
+**Додано**:
+
+- [`scripts/evaluate_segments.py`](/home/g00n3r/projects/esp32_cl_har/scripts/evaluate_segments.py:1)
+  - читає parsed `*_pred.csv`
+  - приймає segment specs у форматі `name:start:end:accepted_label|accepted_label`
+  - рахує `rows`, `accepted_rows`, `accepted_rate`, `mean_conf`, `pred_counts`
+  - не потребує `pandas`
+  - не змінює firmware або raw logs
+
+**Команди**:
+
+```bash
+python3 -m py_compile scripts/evaluate_segments.py
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_pred.csv \
+  --segment sitting:1:6:Sitting \
+  --segment standing_like:7:45:Standing\|Upstairs \
+  --out-csv logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_segments.csv
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_pred.csv \
+  --segment sitting:1:15:Sitting \
+  --segment standing_like:16:50:Standing\|Upstairs \
+  --out-csv logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_segments.csv
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_pred.csv \
+  --segment sitting:1:16:Sitting \
+  --segment standing_like:17:50:Standing\|Upstairs \
+  --out-csv logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_segments.csv
+```
+
+**Generated files**:
+
+```text
+logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_segments.csv
+logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_segments.csv
+logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_segments.csv
+logs/parsed/pilot_2class/pilot_2class_segment_eval_2026-05-09.csv
+```
+
+**Segment evaluation summary**:
+
+```text
+mode       segment        attempts  accepted labels     accepted_rate  pred_counts
+no_adapt   sitting        1-6       Sitting             1.0000         Sitting=6
+no_adapt   standing_like  7-45      Standing|Upstairs   0.1282         Sitting=34;Standing=5
+fifo       sitting        1-15      Sitting             1.0000         Sitting=15
+fifo       standing_like  16-50     Standing|Upstairs   0.2000         Sitting=28;Standing=7
+reservoir  sitting        1-16      Sitting             1.0000         Sitting=16
+reservoir  standing_like  17-50     Standing|Upstairs   0.8529         Sitting=5;Standing=17;Upstairs=12
+```
+
+**Висновок**:
+
+- segment-level evaluator підтвердив, що stationary `Sitting` стабільно відпрацьовує у всіх трьох режимах
+- standing-like segment не є full HAR accuracy benchmark, але показує помітну зміну prediction distribution після reservoir adaptation
+- це корисний pilot sanity result для real-device feasibility section
+- наступний маленький крок: згенерувати просту таблицю/plot для resource + segment pilot results або перейти до тексту `Experimental Setup / Results`
+
+## Фаза 5f — Paper-ready pilot result tables
+
+**Що зроблено**: додано generator для компактних Markdown-таблиць з resource/CL overhead і segment-level pilot summary.
+
+**Додано**:
+
+- [`scripts/build_pilot_results_tables.py`](/home/g00n3r/projects/esp32_cl_har/scripts/build_pilot_results_tables.py:1)
+  - читає `pilot_2class_comparison_*.csv`
+  - читає `pilot_2class_segment_eval_*.csv`
+  - формує paper-ready Markdown tables
+  - форматує inference у `ms`, OnlineLayer/update у `us`, replay RAM у `KiB`
+  - екранує Markdown pipe characters у labels
+  - не потребує `pandas`
+
+**Команди**:
+
+```bash
+python3 -m py_compile scripts/build_pilot_results_tables.py
+
+python3 scripts/build_pilot_results_tables.py \
+  --comparison-csv logs/parsed/pilot_2class/pilot_2class_comparison_2026-05-09.csv \
+  --segment-csv logs/parsed/pilot_2class/pilot_2class_segment_eval_2026-05-09.csv \
+  --out-md results/tables/phase5_pilot_results_2026-05-09.md
+```
+
+**Generated file**:
+
+```text
+results/tables/phase5_pilot_results_2026-05-09.md
+```
+
+**Table snapshot**:
+
+```text
+Resource And CL Overhead:
+no_adapt   infer=172.51 ms  replay=0        train=-
+fifo       infer=172.42 ms  replay=12 KiB   train=664.5 us  update/infer=0.385%
+reservoir  infer=172.27 ms  replay=12 KiB   train=658.0 us  update/infer=0.382%
+
+Segment-Level Pilot Summary:
+no_adapt   standing_like accepted_rate=12.8%
+fifo       standing_like accepted_rate=20.0%
+reservoir  standing_like accepted_rate=85.3%
+```
+
+**Висновок**:
+
+- resource/pilot results тепер готові для перенесення в `Results`
+- головний publishable signal: RAM-only CL update overhead менший за `1%` від MicroFlow-32 inference time
+- pilot segment result треба описувати як feasibility/sanity check, не як фінальну 6-class HAR accuracy
+- наступний маленький крок: почати draft секцій `Experimental Setup` і `Results` або зробити мінімальні plots з цих CSV
+
+## Фаза 5g — Sitting vs upstairs-like vertical hand-motion pilot
+
+**Що зроблено**: виконано контрольований 2-class real-device pilot для `Sitting` vs upstairs-like vertical hand-motion.
+
+**Межі кроку**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- parser/scripts не змінювались
+- persistence/NVS/flash state не додавались
+- це не real staircase benchmark і не фінальна 6-class HAR accuracy
+- другий segment є upward hand-motion біля ПК, обмежений USB-кабелем
+
+**Protocol**:
+
+```text
+Segment 1:
+  Sitting / stationary
+  label = 4
+
+Segment 2:
+  upstairs-like vertical hand-motion
+  label = 2
+
+Modes:
+  no_adapt: no labels, PRED only
+  fifo: 4444444444 -> TRAIN step=1, then 2222222222 -> TRAIN step=2
+  reservoir: same as fifo
+```
+
+**Команди**:
+
+```bash
+mkdir -p logs/raw/pilot_sit_up \
+  logs/parsed/pilot_sit_up/no_adapt \
+  logs/parsed/pilot_sit_up/fifo \
+  logs/parsed/pilot_sit_up/reservoir
+
+script -q -c "timeout 110s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har'" logs/raw/pilot_sit_up/sit_up_no_adapt_2026-05-09.txt
+
+script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har'" logs/raw/pilot_sit_up/sit_up_fifo_2026-05-09.txt
+
+script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt
+
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_no_adapt_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/no_adapt
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_fifo_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/fifo
+python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/reservoir
+
+python3 scripts/summarize_experiment_runs.py \
+  logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_summary.json \
+  logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_summary.json \
+  logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_summary.json \
+  --out-csv logs/parsed/pilot_sit_up/sit_up_comparison_2026-05-09.csv
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_pred.csv \
+  --segment sitting:1:18:Sitting \
+  --segment upstairs_like:19:45:Upstairs\|Downstairs \
+  --out-csv logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_segments.csv
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_pred.csv \
+  --segment sitting:1:15:Sitting \
+  --segment upstairs_like:16:50:Upstairs\|Downstairs \
+  --out-csv logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_segments.csv
+
+python3 scripts/evaluate_segments.py \
+  logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_pred.csv \
+  --segment sitting:1:17:Sitting \
+  --segment upstairs_like:18:50:Upstairs\|Downstairs \
+  --out-csv logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_segments.csv
+```
+
+**Generated files**:
+
+```text
+logs/raw/pilot_sit_up/sit_up_no_adapt_2026-05-09.txt
+logs/raw/pilot_sit_up/sit_up_fifo_2026-05-09.txt
+logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt
+
+logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_*.csv/json
+logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_*.csv/json
+logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_*.csv/json
+logs/parsed/pilot_sit_up/sit_up_comparison_2026-05-09.csv
+logs/parsed/pilot_sit_up/sit_up_segment_eval_2026-05-09.csv
+```
+
+**Resource / overhead summary**:
+
+```text
+mode       pred_rows  labels  train_updates  replay_ram  infer_us_mean  train_update_us_mean  update_vs_infer
+no_adapt   45         0       0              0           172511.911     -                     -
+fifo       50         20      2              12288       172289.640     666.5                 0.387%
+reservoir  50         20      2              12288       172324.380     656.0                 0.381%
+```
+
+**Segment evaluation summary**:
+
+```text
+mode       segment        attempts  accepted labels       accepted_rate  pred_counts
+no_adapt   sitting        1-18      Sitting               1.0000         Sitting=18
+no_adapt   upstairs_like  19-45     Upstairs|Downstairs   0.0000         Sitting=27
+fifo       sitting        1-15      Sitting               1.0000         Sitting=15
+fifo       upstairs_like  16-50     Upstairs|Downstairs   0.8857         Sitting=4;Upstairs=31
+reservoir  sitting        1-17      Sitting               1.0000         Sitting=17
+reservoir  upstairs_like  18-50     Upstairs|Downstairs   0.9394         Downstairs=4;Sitting=2;Upstairs=27
+```
+
+**Hardware observations**:
+
+- усі три режими booted, MPU6050 detected, MicroFlow-32 inference працював
+- FIFO і reservoir прийняли labels `4` і `2`
+- FIFO і reservoir зробили по `2` train updates
+- firmware не зависала після train updates
+- no_adapt залишив upstairs-like segment як `Sitting`, але confidence помітно падала
+- FIFO і reservoir на upstairs-like vertical motion стабільно зміщували predictions у `Upstairs`/`Downstairs`
+- CL update overhead лишився приблизно `0.38%` від MicroFlow-32 inference time
+
+**Висновок**:
+
+- цей pilot дає сильніший real-device motion validation, ніж попередній standing-like pilot
+- результат не треба описувати як staircase benchmark
+- коректний claim: ESP32 RAM-only CL loop реагує на supervised labels `4/2` і змінює prediction distribution на upstairs-like vertical hand-motion без runtime failure
+- next step: згенерувати paper-ready таблиці для `pilot_sit_up` або починати `Experimental Setup / Results` draft з двома pilot blocks
+
+## Фаза 5h — Paper results analysis notebook
+
+**Що зроблено**: створено Jupyter notebook для paper-ready analysis і plots на основі вже parsed CSV.
+
+**Додано**:
+
+- [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
+
+**Scope**:
+
+- firmware не змінювалась
+- `main.rs` не змінювався
+- raw logs не змінювались
+- hardware experiments не перезапускались
+- notebook працює тільки з existing parsed logs / CSV outputs
+
+**Expected inputs**:
+
+```text
+logs/parsed/pilot_sit_up/sit_up_comparison_2026-05-09.csv
+logs/parsed/pilot_sit_up/sit_up_segment_eval_2026-05-09.csv
+logs/parsed/pilot_2class/pilot_2class_comparison_2026-05-09.csv
+logs/parsed/pilot_2class/pilot_2class_segment_eval_2026-05-09.csv
+results/tables/phase5_pilot_results_2026-05-09.md
+```
+
+**Notebook outputs when run**:
+
+```text
+results/tables/table_resource_overhead_sit_up.csv
+results/tables/table_resource_overhead_sit_up.md
+results/tables/table_prediction_distribution_sit_up.csv
+results/tables/table_optional_pilot_comparison.csv
+
+results/figures/fig_inference_latency_sit_up.png
+results/figures/fig_inference_latency_sit_up.pdf
+results/figures/fig_cl_update_cost_sit_up.png
+results/figures/fig_cl_update_cost_sit_up.pdf
+results/figures/fig_segment_accepted_rate_sit_up.png
+results/figures/fig_segment_accepted_rate_sit_up.pdf
+results/figures/fig_upstairs_like_shift_sit_up.png
+results/figures/fig_upstairs_like_shift_sit_up.pdf
+results/figures/fig_prediction_distribution_upstairs_like.png
+results/figures/fig_prediction_distribution_upstairs_like.pdf
+```
+
+**Notebook contents**:
+
+- intro with correct scientific scope
+- safe CSV loading
+- raw tables display
+- metric cleanup and derived columns
+- resource/CL overhead table
+- MicroFlow-32 inference latency plot
+- CL update cost plot
+- segment accepted-rate plots
+- upstairs-like prediction shift plot
+- prediction-distribution parser and plot
+- optional comparison with earlier standing-like pilot
+- final paper-ready summary bullets
+
+**Validation**:
+
+```bash
+python3 - <<'PY'
+import ast
+import json
+from pathlib import Path
+
+path = Path('notebooks/paper_results_analysis.ipynb')
+nb = json.loads(path.read_text(encoding='utf-8'))
+code_cells = [cell for cell in nb['cells'] if cell.get('cell_type') == 'code']
+for idx, cell in enumerate(code_cells, start=1):
+    source = ''.join(cell.get('source', []))
+    compile(source, f'{path}:code_cell_{idx}', 'exec')
+print(f'valid notebook json: {path}')
+print(f'code cells compiled: {len(code_cells)}')
+PY
+```
+
+Output:
+
+```text
+valid notebook json: notebooks/paper_results_analysis.ipynb
+code cells compiled: 14
+```
+
+**Висновок**:
+
+- notebook готовий для ручного top-to-bottom запуску
+- головний analysis focus: `Sitting` vs upstairs-like vertical hand-motion pilot
+- plots/tables формуються без нових firmware changes і без rerun hardware experiments

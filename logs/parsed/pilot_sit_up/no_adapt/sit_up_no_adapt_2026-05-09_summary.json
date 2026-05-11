@@ -1,0 +1,35 @@
+{
+  "modes": {
+    "no_adapt": 47
+  },
+  "pred_head_us": {
+    "count": 45,
+    "max": 161.0,
+    "mean": 106.11111111111111,
+    "min": 104.0
+  },
+  "pred_infer_us": {
+    "count": 45,
+    "max": 173048.0,
+    "mean": 172511.9111111111,
+    "min": 172281.0
+  },
+  "resources": [
+    {
+      "batch_size": 0,
+      "feature_dim": 32,
+      "mode": "no_adapt",
+      "persistence": "off",
+      "replay_ram_est": 0,
+      "slots_per_class": 0,
+      "tag": "RESOURCE"
+    }
+  ],
+  "rows": {
+    "EXPERIMENT": 1,
+    "LABEL": 0,
+    "PRED": 45,
+    "RESOURCE": 1,
+    "TRAIN": 0
+  }
+}
