@@ -405,6 +405,89 @@ Downstairs recall: 0.00% -> 100.00%
 - Це достатня підстава готувати isolated ESP32 target-user CL binary для
   `user=19`, але не підстава змінювати `main.rs` або запускати `full_9154`.
 
+### Device-side target-user CL result for `user=19`
+
+Після PC-side gate підготовлено і запущено isolated ESP32 binary
+`wisdm_user19_device_cl`. Він не використовує `main.rs`, sensor path, UART labels,
+NVS або persistence. На пристрій включено fold-specific `user=19` feature extractor,
+fold-specific head і target-user windows.
+
+Логи:
+
+- `logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt`
+- `logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt`
+
+Parsed tables:
+
+- `results/tables/wisdm_user19_device_cl_summary.csv`
+- `results/tables/wisdm_user19_device_cl_per_class.csv`
+- `results/tables/wisdm_user19_device_cl_train.csv`
+- `results/tables/table_wisdm_user19_device_cl_summary.csv`
+- `results/tables/table_wisdm_user19_device_cl_per_class_heldout.csv`
+
+Figures:
+
+- `results/figures/fig_wisdm_user19_accuracy_pre_post.png`
+- `results/figures/fig_wisdm_user19_downstairs_recall_pre_post.png`
+- `results/figures/fig_wisdm_user19_per_class_recall.png`
+- `results/figures/fig_wisdm_user19_update_cost.png`
+
+Device-side protocol:
+
+```text
+target_user=19
+target_windows=208
+adaptation labels=56
+held_out eval windows=152
+budget=10 labels/class, with at least one held-out sample/class
+lr=0.01
+labels_per_update=10
+batch_size=12
+train_updates=5
+```
+
+Device-side result:
+
+```text
+pre held-out accuracy:  73.03%
+post held-out accuracy: 80.26%
+gain:                  +7.24 percentage points
+
+Downstairs recall:
+  pre:   0.00%
+  post: 78.57%
+```
+
+FIFO і reservoir дали однаковий result у цьому gate:
+
+```text
+FIFO:      73.03% -> 80.26%
+reservoir: 73.03% -> 80.26%
+```
+
+Resource/timing observations:
+
+```text
+app/partition: 183,792 / 4,128,768 bytes = 4.45%
+mean MicroFlow-32 inference:
+  reservoir run post eval: ~178.3 ms
+  FIFO run post eval:      ~174.8 ms
+OnlineLayer update:
+  reservoir mean ~0.605 ms/update
+  FIFO mean      ~0.603 ms/update
+  overhead vs inference ~=0.34%
+```
+
+Інтерпретація:
+
+- Це перший clean device-side WISDM target-user CL результат у проекті.
+- Він напряму відповідає темі continual learning: train users exclude target user,
+  adaptation використовує labeled target-user samples, evaluation виконується на
+  held-out target-user windows.
+- Основний gain іде з виправлення `Downstairs`, а не з full-corpus random split.
+- Результат не є full LOSO CV і не є `full_9154` benchmark; це staged target-user
+  proof-of-concept на ESP32.
+
 PC-only `balanced_600` CL split gate:
 
 - `results/tables/wisdm_balanced600_pc_cl_split_20perclass.csv`

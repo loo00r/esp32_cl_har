@@ -36,6 +36,11 @@ name = "wisdm_device_eval"
 path = "./src/bin/wisdm_device_eval.rs"
 required-features = ["microflow32_backend"]
 
+[[bin]]
+name = "wisdm_user19_device_cl"
+path = "./src/bin/wisdm_user19_device_cl.rs"
+required-features = ["microflow32_backend"]
+
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]

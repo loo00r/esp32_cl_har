@@ -39,6 +39,8 @@ MPU6050
 > Rust/no_std firmware stack. In a real-device pilot, supervised FIFO and
 > reservoir replay shifted predictions on an upstairs-like motion segment while
 > keeping the online update cost below 1% of the frozen feature extraction time.
+> In a staged WISDM target-user run, the same RAM-only adaptation improved
+> held-out accuracy for user 19 from 73.03% to 80.26%.
 
 Українська версія:
 
@@ -46,7 +48,9 @@ MPU6050
 > IMU-HAR можна реалізувати й профілювати на ESP32-WROOM-32 у стеку Rust/no_std.
 > У real-device pilot supervised FIFO та reservoir replay зміщували prediction
 > distribution на upstairs-like segment, тоді як вартість online update лишалась
-> меншою за 1% від часу frozen feature extraction.
+> меншою за 1% від часу frozen feature extraction. У staged WISDM target-user
+> run ця сама RAM-only адаптація підняла held-out accuracy для `user=19` з
+> 73.03% до 80.26%.
 
 ## Що не заявляємо
 
@@ -88,7 +92,8 @@ MPU6050
    budget.
 4. Resource profiling: inference latency, forward latency, update time, replay RAM,
    firmware footprint.
-5. Real-device pilot, який показує prediction shift після supervised labels.
+5. Device-side WISDM target-user CL proof-of-concept для `user=19`.
+6. Real-device pilot, який показує prediction shift після supervised labels.
 
 ### 2. Related Work
 

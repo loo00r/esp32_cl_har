@@ -85,7 +85,107 @@ adaptation є дешевою відносно inference частиною pipelin
 window-level CL pipeline, але synchronous feature extraction лишається основним
 latency bottleneck.
 
-### 3. Real-device pilot: Sitting vs upstairs-like vertical motion
+### 3. Device-side target-user WISDM CL: held-out user 19
+
+Після `balanced_600` inference sanity check було виконано методично чистіший
+target-user experiment. Для цього обрано `user=19` з WISDM, оскільки PC-side
+screening показав помітний domain-shift сценарій: загальна baseline accuracy
+була нижчою, а клас `Downstairs` майже не розпізнавався.
+
+На відміну від `balanced_600`, цей experiment не є змішаним subset по всіх
+користувачах. Було натреновано fold-specific `MicroFlow-32` artifact, де
+`user=19` повністю виключено з train users. На ESP32 потім було включено:
+
+```text
+fold-specific MicroFlow-32 feature extractor
+fold-specific OnlineLayer32 head
+user=19 target windows
+user=19 labels
+```
+
+Runtime path на платі:
+
+```text
+int8[240] WISDM target-user window
+-> MicroFlow-32 feature extractor
+-> OnlineLayer32 prediction
+-> pre-adaptation held-out evaluation
+-> RAM-only ReplayBuffer32 adaptation
+-> post-adaptation held-out evaluation
+```
+
+Це не UART dataset streaming і не sensor pilot. Це ізольований device-side
+target-user CL proof-of-concept, потрібний для перевірки, що PC-side positive
+gate переноситься на ESP32.
+
+**Figures:**
+
+- `results/figures/fig_wisdm_user19_accuracy_pre_post.png`
+- `results/figures/fig_wisdm_user19_downstairs_recall_pre_post.png`
+- `results/figures/fig_wisdm_user19_per_class_recall.png`
+- `results/figures/fig_wisdm_user19_update_cost.png`
+
+**Tables:**
+
+- `results/tables/table_wisdm_user19_device_cl_summary.csv`
+- `results/tables/table_wisdm_user19_device_cl_per_class_heldout.csv`
+
+**Logs:**
+
+- `logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt`
+- `logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt`
+
+Protocol:
+
+| Parameter | Value |
+| --- | ---: |
+| Target user | `19` |
+| Target windows | `208` |
+| Adaptation labels | `56` |
+| Held-out eval windows | `152` |
+| Budget | `10 labels/class` |
+| Learning rate | `0.01` |
+| Labels per update | `10` |
+| Batch size | `12` |
+| Train updates | `5` |
+
+Device-side result:
+
+| Policy | Pre held-out accuracy | Post held-out accuracy | Gain | Downstairs pre recall | Downstairs post recall |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `FIFO` | 73.03% | 80.26% | +7.24 pp | 0.00% | 78.57% |
+| `reservoir` | 73.03% | 80.26% | +7.24 pp | 0.00% | 78.57% |
+
+Обидві policy дали однаковий результат у цьому gate. Це очікувано, бо при
+`56` adaptation labels і `16` replay slots/class поточна послідовність samples
+ще не створила суттєвої різниці між FIFO replacement і reservoir replacement.
+Тому цей experiment не доводить перевагу reservoir над FIFO. Його головна
+цінність інша: він показує, що RAM-only replay adaptation на ESP32 може
+підняти held-out target-user accuracy після supervised labels.
+
+Найсильніший ефект спостерігався у слабкому класі `Downstairs`: до адаптації
+на held-out split correct було `0/14`, після адаптації - `11/14`. Загальна
+held-out accuracy зросла з `73.03%` до `80.26%`.
+
+Timing на ESP32:
+
+| Policy | Mean inference | Mean update | Update / inference |
+| --- | ---: | ---: | ---: |
+| `FIFO` | 174.814 ms | 602.8 us | 0.345% |
+| `reservoir` | 178.257 ms | 604.6 us | 0.339% |
+
+App footprint для isolated binary:
+
+```text
+App/partition: 183,792 / 4,128,768 bytes = 4.45%
+```
+
+Цей result є найбільш прямим evidence для continual learning частини роботи:
+`train users != target user`, адаптація використовує labeled target-user samples,
+а evaluation виконується на held-out target-user windows. Водночас це все ще не
+повний `LOSO` benchmark по всіх users, а staged target-user proof-of-concept.
+
+### 4. Real-device pilot: Sitting vs upstairs-like vertical motion
 
 Основний real-device pilot перевіряв не full `6-class HAR` accuracy, а
 поведінку pipeline на реальному `MPU6050` сигналі. Pilot складався з двох
@@ -130,7 +230,7 @@ RAM-only supervised adaptation. Коректний висновок: `FIFO` і
 memory budget і обидва здатні змінювати prediction distribution на реальному
 IMU-сигналі після supervised labels.
 
-### 4. Prediction distribution і attempt-level dynamics
+### 5. Prediction distribution і attempt-level dynamics
 
 Агреговані accepted-rate результати доповнено графіками розподілу predicted
 classes і attempt-level динаміки.
@@ -169,7 +269,7 @@ Confidence plots уточнюють цю картину. У `no_adapt` confidenc
 підтримує інтерпретацію pilot як evidence of prediction shift, а не як
 остаточний accuracy benchmark.
 
-### 5. Secondary pilot: Sitting vs standing-like small movement
+### 6. Secondary pilot: Sitting vs standing-like small movement
 
 Попередній pilot `Sitting vs standing-like small movement` використовується лише
 як secondary sanity check. Спочатку він планувався як `Sitting vs Walking`, але
@@ -183,7 +283,7 @@ standing-like segment `reservoir` показав сильніший prediction d
 shift, ніж `FIFO`, але цей результат треба трактувати тільки як sanity evidence,
 а не як статистичне доведення переваги reservoir.
 
-### 6. Summary of result claims
+### 7. Summary of result claims
 
 Поточні результати підтримують такі обережні claims:
 
@@ -194,14 +294,17 @@ shift, ніж `FIFO`, але цей результат треба трактув
    `0.66 ms`, що менше `1%` від `MicroFlow-32` feature extraction latency.
 3. `ReplayBuffer32` з `16` slots/class потребує приблизно `12 KiB` RAM і
    працює для обох policy: `FIFO` і `reservoir-per-class`.
-4. У real-device upstairs-like pilot `no_adapt` залишив second segment як
+4. У clean target-user WISDM run для `user=19` ESP32 підняв held-out accuracy
+   з `73.03%` до `80.26%` після RAM-only adaptation, а `Downstairs` recall
+   зріс з `0.00%` до `78.57%`.
+5. У real-device upstairs-like pilot `no_adapt` залишив second segment як
    `Sitting`, тоді як `FIFO` і `reservoir` змістили predictions у
    `Upstairs/Downstairs` після supervised labels.
-5. Поточний pilot демонструє feasibility і prediction shift на реальному IMU,
+6. Поточний pilot демонструє feasibility і prediction shift на реальному IMU,
    але не є повним `6-class HAR` benchmark і не доводить статистичну перевагу
    reservoir над FIFO.
 
-### 7. Limitations visible from the results
+### 8. Limitations visible from the results
 
 Результати також показують кілька обмежень:
 
@@ -214,6 +317,8 @@ shift, ніж `FIFO`, але цей результат треба трактув
   vector, а не рівномірно розподілена по всьому segment;
 - pilot має коротку тривалість і не замінює multi-subject real-device HAR
   evaluation;
+- `user=19` result є одним target-user proof-of-concept, а не повним LOSO
+  benchmark по всіх users;
 - persistence/NVS/flash storage не реалізовані навмисно і лишаються Future Work.
 
 Ці обмеження не скасовують основний resource result: replay-based RAM-only

@@ -4439,3 +4439,340 @@ user=19 budget=20 lr=0.01:
 - raw hardware logs не змінювались.
 - ReplayBuffer firmware path не чіпався.
 - git не чіпався.
+
+## Фаза 7i — Isolated ESP32 binary для `user=19` target-user CL
+
+**Що зроблено**: підготовлено окремий ESP32 binary для device-side перевірки найкращого PC gate з Фази 7h. Це не зміна normal sensor firmware і не інтеграція в `main.rs`.
+
+**Сценарій binary**:
+
+```text
+held-out WISDM user=19 windows
+-> fold-specific MicroFlow-32 feature extractor
+-> fold-specific OnlineLayer32 head
+-> pre-adaptation eval
+-> RAM-only replay adaptation
+-> post-adaptation eval
+```
+
+**Конфігурація**:
+
+```text
+target_user=19
+target_windows=208
+budget_per_class=10
+learning_rate=0.01
+labels_per_update=10
+batch_size=12
+feature_dim=32
+policy=reservoir by default
+policy=fifo with replay_fifo_policy feature
+```
+
+**Додано**:
+
+- [`src/bin/wisdm_user19_device_cl.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/wisdm_user19_device_cl.rs:1)
+- [`scripts/export_wisdm_target_user_head_rust.py`](/home/g00n3r/projects/esp32_cl_har/scripts/export_wisdm_target_user_head_rust.py:1)
+- [`src/eval_artifacts/wisdm_user19_head.rs`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_user19_head.rs:1)
+- [`Cargo.toml`](/home/g00n3r/projects/esp32_cl_har/Cargo.toml:1)
+- [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
+
+**Artifact inputs**:
+
+```text
+results/fold_artifacts/wisdm_user19_microflow32/microflow32_user19_feature_extractor_int8.tflite
+results/fold_artifacts/wisdm_user19_microflow32/microflow32_user19_head_float.json
+results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_windows_i8.bin
+results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_labels_u8.bin
+```
+
+**Artifact sizes**:
+
+```text
+target windows: 49,920 bytes
+target labels:     208 bytes
+feature tflite:  8,200 bytes
+generated head:  5,834 bytes source text
+```
+
+**Команди**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/export_wisdm_target_user_head_rust.py --target-user 19
+cargo build --features microflow32_backend --bin wisdm_user19_device_cl
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/wisdm_user19_device_cl
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/debug/wisdm_user19_device_cl
+cargo build --features microflow32_backend,replay_fifo_policy --bin wisdm_user19_device_cl
+cargo build
+```
+
+**Build result**:
+
+```text
+cargo build --features microflow32_backend --bin wisdm_user19_device_cl: passed
+cargo build --features microflow32_backend,replay_fifo_policy --bin wisdm_user19_device_cl: passed
+cargo build: passed
+```
+
+**Size check**:
+
+```text
+text=146,578
+data=1,656
+bss=194,952
+dec=343,186
+rodata=89,528
+```
+
+**Expected logs when run**:
+
+```text
+WISDM_CL_START ...
+WISDM_CL_SPLIT selected_adaptation=56 held_out=152 total=208
+WISDM_CL_EVAL phase=pre split=all ...
+WISDM_CL_EVAL phase=pre split=held_out ...
+WISDM_CL_LABEL ...
+WISDM_CL_TRAIN ...
+WISDM_CL_EVAL phase=post split=held_out ...
+WISDM_CL_SUMMARY ...
+```
+
+**Межі кроку**:
+
+- `main.rs` не змінювався.
+- sensor firmware не змінювалась.
+- UART labels не використовуються.
+- ReplayBuffer використовується тільки RAM-only всередині isolated binary.
+- persistence/NVS/flash writes не додані.
+- ESP32 hardware run ще не виконувався.
+- git не чіпався.
+
+**Наступний gated крок**:
+
+Запустити `wisdm_user19_device_cl` на ESP32 спочатку в default reservoir mode. Якщо run завершиться clean і дасть summary, окремим кроком повторити з `replay_fifo_policy`.
+
+## Фаза 7j — Device-side `user=19` target-user CL run: reservoir + FIFO
+
+**Що зроблено**: виконано hardware run isolated binary `wisdm_user19_device_cl` на ESP32 для обох replay policies. Це перший clean WISDM target-user CL result на платі:
+
+```text
+train users exclude target_user=19
+adaptation uses labeled target-user windows
+evaluation uses held-out target-user windows
+OnlineLayer32 only
+RAM-only ReplayBuffer32
+no sensor path
+no UART labels
+no persistence/NVS/flash writes
+no main.rs changes
+```
+
+**Команди**:
+
+```bash
+mkdir -p logs/raw/wisdm_user19_device_cl
+
+script -q -c "timeout 260s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin wisdm_user19_device_cl'" \
+  logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt
+
+script -q -c "timeout 260s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,replay_fifo_policy --bin wisdm_user19_device_cl'" \
+  logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt
+
+/home/g00n3r/.venvs/base/bin/python scripts/parse_wisdm_device_cl.py \
+  logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt \
+  logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt
+```
+
+**Logs / outputs**:
+
+- [`logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt:1)
+- [`logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt:1)
+- [`scripts/parse_wisdm_device_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_wisdm_device_cl.py:1)
+- [`results/tables/wisdm_user19_device_cl_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_summary.csv:1)
+- [`results/tables/wisdm_user19_device_cl_per_class.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_per_class.csv:1)
+- [`results/tables/wisdm_user19_device_cl_train.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_train.csv:1)
+
+**Flash / boot**:
+
+```text
+Chip: ESP32 rev v3.1
+Flash: 4MB
+App/partition: 183,792 / 4,128,768 bytes = 4.45%
+Boot: OK
+No panic/reset/watchdog observed during pre/adapt/post run
+```
+
+**Split**:
+
+```text
+target_user=19
+total_windows=208
+selected_adaptation=56
+held_out=152
+budget_per_class=10
+lr=0.01
+labels_per_update=10
+batch_size=12
+train_steps=5
+```
+
+**Reservoir result**:
+
+```text
+pre all:
+  total=208
+  correct=148
+  accuracy=71.15%
+
+pre held_out:
+  total=152
+  correct=111
+  accuracy=73.03%
+  Downstairs recall=0.00% (0/14)
+
+post held_out:
+  total=152
+  correct=122
+  accuracy=80.26%
+  Downstairs recall=78.57% (11/14)
+
+gain:
+  accuracy +7.24 pp
+  Downstairs recall +78.57 pp
+```
+
+**FIFO result**:
+
+```text
+pre held_out:
+  total=152
+  correct=111
+  accuracy=73.03%
+  Downstairs recall=0.00% (0/14)
+
+post held_out:
+  total=152
+  correct=122
+  accuracy=80.26%
+  Downstairs recall=78.57% (11/14)
+
+gain:
+  accuracy +7.24 pp
+  Downstairs recall +78.57 pp
+```
+
+**Timing**:
+
+```text
+reservoir post eval mean_infer_us=178257
+FIFO post eval mean_infer_us=174814
+
+reservoir update_us:
+  725, 572, 569, 569, 588
+  mean=604.6 us
+  overhead vs post-eval inference ~=0.34%
+
+FIFO update_us:
+  728, 577, 570, 569, 570
+  mean=602.8 us
+  overhead vs post-eval inference ~=0.34%
+```
+
+**Interpretation**:
+
+- PC-side positive gate перенесено на ESP32 успішно.
+- `user=19` дає meaningful target-user adaptation signal без leakage.
+- FIFO і reservoir однакові в цьому scenario, бо adaptation sequence і replay capacity не створили розходження між policies.
+- Головна publishable цінність: device-side proof that RAM-only replay adaptation can improve held-out target-user WISDM accuracy on ESP32 while update cost remains below 1 ms.
+- Це все ще не full LOSO CV і не `full_9154` benchmark; трактувати як staged target-user proof-of-concept.
+
+**Межі кроку**:
+
+- `main.rs` не змінювався.
+- sensor/MPU6050 firmware не змінювалась.
+- UART labels не використовувались.
+- persistence/NVS/flash writes не додавались.
+- git не чіпався.
+
+## Фаза 7k — Paper artifacts для `user=19` target-user CL result
+
+**Що зроблено**: після успішного ESP32 run згенеровано paper-ready tables/figures
+для нового `user=19` device-side CL result і оновлено українські draft-файли
+статті.
+
+**Додано / оновлено**:
+
+- [`scripts/build_wisdm_user19_device_cl_figures.py`](/home/g00n3r/projects/esp32_cl_har/scripts/build_wisdm_user19_device_cl_figures.py:1)
+- [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
+- [`paper/results_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/results_draft_uk.md:1)
+- [`paper/discussion_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/discussion_draft_uk.md:1)
+- [`paper/experimental_setup_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/experimental_setup_draft_uk.md:1)
+- [`paper/article_structure_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/article_structure_uk.md:1)
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+
+**Команда**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/build_wisdm_user19_device_cl_figures.py
+```
+
+**Generated tables**:
+
+- [`results/tables/table_wisdm_user19_device_cl_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/table_wisdm_user19_device_cl_summary.csv:1)
+- [`results/tables/table_wisdm_user19_device_cl_summary.md`](/home/g00n3r/projects/esp32_cl_har/results/tables/table_wisdm_user19_device_cl_summary.md:1)
+- [`results/tables/table_wisdm_user19_device_cl_per_class_heldout.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/table_wisdm_user19_device_cl_per_class_heldout.csv:1)
+- [`results/tables/table_wisdm_user19_device_cl_per_class_heldout.md`](/home/g00n3r/projects/esp32_cl_har/results/tables/table_wisdm_user19_device_cl_per_class_heldout.md:1)
+
+**Generated figures**:
+
+- [`results/figures/fig_wisdm_user19_accuracy_pre_post.png`](/home/g00n3r/projects/esp32_cl_har/results/figures/fig_wisdm_user19_accuracy_pre_post.png:1)
+- [`results/figures/fig_wisdm_user19_downstairs_recall_pre_post.png`](/home/g00n3r/projects/esp32_cl_har/results/figures/fig_wisdm_user19_downstairs_recall_pre_post.png:1)
+- [`results/figures/fig_wisdm_user19_per_class_recall.png`](/home/g00n3r/projects/esp32_cl_har/results/figures/fig_wisdm_user19_per_class_recall.png:1)
+- [`results/figures/fig_wisdm_user19_update_cost.png`](/home/g00n3r/projects/esp32_cl_har/results/figures/fig_wisdm_user19_update_cost.png:1)
+
+PDF versions згенеровані поруч у `results/figures/`.
+
+**Notebook update**:
+
+У [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1) додано секцію:
+
+```text
+Device-Side Target-User WISDM CL
+```
+
+Вона читає parsed `wisdm_user19_device_cl_*` CSV і відтворює:
+
+- summary table;
+- pre/post held-out accuracy plot;
+- Downstairs recall recovery plot;
+- per-class held-out recall plot;
+- OnlineLayer update-cost plot.
+
+**Paper draft update**:
+
+- `Results` тепер має окрему секцію `Device-side target-user WISDM CL: held-out user 19`.
+- `Discussion` пояснює, що `balanced_600` був sanity check, а `user=19` є clean target-user proof-of-concept.
+- `Experimental Setup` описує isolated target-user WISDM protocol.
+- `Article Structure` оновлено так, щоб `user=19` result став частиною головного claim.
+
+**Verification**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python -m py_compile \
+  scripts/build_wisdm_user19_device_cl_figures.py \
+  scripts/parse_wisdm_device_cl.py
+
+python3 - <<'PY'
+import json
+from pathlib import Path
+nb = json.loads(Path('notebooks/paper_results_analysis.ipynb').read_text())
+print(len(nb['cells']))
+PY
+```
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- hardware не запускався.
+- raw logs не змінювались.
+- git не чіпався.
