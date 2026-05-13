@@ -3526,3 +3526,181 @@ ESP32-WROOM-32 + real MPU6050 + Rust/no_std + MicroFlow-32 frozen extractor
 
 - тепер є повний набір українських draft-ів основних секцій статті: `Introduction + Related Work`, `System Architecture`, `Experimental Setup`, `Results`, `Discussion`, `Conclusion`
 - наступний логічний крок: зібрати unified article draft або зробити consistency pass між усіма section drafts
+
+## Фаза 7a — WISDM device-side eval Stage 0/1
+
+**Що зроблено**: додано ізольований device-side WISDM inference evaluation path для ESP32. Це окремий sanity/F1-прогін відомих WISDM windows на пристрої:
+
+```text
+int8[240] WISDM window
+-> MicroFlow-32 frozen feature extractor
+-> pretrained OnlineLayer32
+-> prediction
+-> confusion matrix
+```
+
+Цей крок не змінює normal sensor firmware і не є CL-експериментом.
+
+**Додано**:
+
+- [`scripts/export_wisdm_device_eval_artifact.py`](/home/g00n3r/projects/esp32_cl_har/scripts/export_wisdm_device_eval_artifact.py:1)
+- [`scripts/parse_wisdm_device_eval.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_wisdm_device_eval.py:1)
+- [`src/bin/wisdm_device_eval.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/wisdm_device_eval.rs:1)
+- [`src/eval_artifacts/wisdm_eval_windows_i8_smoke_120.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_windows_i8_smoke_120.bin:1)
+- [`src/eval_artifacts/wisdm_eval_labels_u8_smoke_120.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_labels_u8_smoke_120.bin:1)
+- [`src/eval_artifacts/wisdm_eval_metadata_smoke_120.json`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_metadata_smoke_120.json:1)
+- [`src/eval_artifacts/wisdm_eval_windows_i8_balanced_600.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_windows_i8_balanced_600.bin:1)
+- [`src/eval_artifacts/wisdm_eval_labels_u8_balanced_600.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_labels_u8_balanced_600.bin:1)
+- [`src/eval_artifacts/wisdm_eval_metadata_balanced_600.json`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_metadata_balanced_600.json:1)
+- [`src/eval_artifacts/wisdm_eval_windows_i8_full_9154.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_windows_i8_full_9154.bin:1)
+- [`src/eval_artifacts/wisdm_eval_labels_u8_full_9154.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_labels_u8_full_9154.bin:1)
+- [`src/eval_artifacts/wisdm_eval_metadata_full_9154.json`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_metadata_full_9154.json:1)
+
+**Stage 0 — artifact generator**:
+
+Команда:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/export_wisdm_device_eval_artifact.py
+```
+
+Згенеровані artifact-и:
+
+```text
+smoke_120:
+  windows_bytes=28,800
+  labels_bytes=120
+  distribution=20/class x 6
+
+balanced_600:
+  windows_bytes=144,000
+  labels_bytes=600
+  distribution=100/class x 6
+
+full_9154:
+  windows_bytes=2,196,960
+  labels_bytes=9,154
+  distribution:
+    Walking=4302
+    Jogging=2133
+    Upstairs=1211
+    Downstairs=959
+    Sitting=180
+    Standing=369
+```
+
+`balanced_1200` не згенеровано, бо відтворений final corpus має тільки `180` windows для класу `Sitting`, а чесний `balanced_1200` потребує `200/class`. Oversampling або підміна розміру не виконувались.
+
+**Stage 1 — ESP32 smoke run, 120 windows**:
+
+Build:
+
+```bash
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin wisdm_device_eval
+```
+
+Результат:
+
+```text
+Finished `dev` profile [optimized + debuginfo]
+```
+
+Size:
+
+```text
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/wisdm_device_eval
+
+text=119854
+data=1632
+bss=194976
+dec=316462
+```
+
+Перший запуск у sandbox не побачив USB-порт:
+
+```text
+Error: espflash::no_serial
+No serial ports could be detected
+```
+
+Після запуску поза sandbox `espflash` побачив плату:
+
+```text
+Serial port: /dev/ttyUSB0
+Chip type: esp32 revision v3.1
+Flash size: 4MB
+App/part. size: 179,584/4,128,768 bytes, 4.35%
+```
+
+Run:
+
+```bash
+script -q -c "timeout 180s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin wisdm_device_eval'" logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt
+```
+
+Raw log:
+
+- [`logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt:1)
+
+Stage 1 firmware output:
+
+```text
+WISDM_EVAL_START tag=smoke_120 total=120
+WISDM_EVAL_PROGRESS idx=20 total=120 correct=20 acc=1
+WISDM_EVAL_PROGRESS idx=40 total=120 correct=38 acc=0.95
+WISDM_EVAL_PROGRESS idx=60 total=120 correct=51 acc=0.85
+WISDM_EVAL_PROGRESS idx=80 total=120 correct=59 acc=0.7375
+WISDM_EVAL_PROGRESS idx=100 total=120 correct=77 acc=0.77
+WISDM_EVAL_PROGRESS idx=120 total=120 correct=97 acc=0.80833334
+WISDM_EVAL_SUMMARY tag=smoke_120 total=120 correct=97 accuracy=0.80833334 mean_infer_us=171714 min_infer_us=171245 max_infer_us=173169
+```
+
+Per-class recall:
+
+```text
+Walking:    support=20 correct=20 recall=1.00
+Jogging:    support=20 correct=18 recall=0.90
+Upstairs:   support=20 correct=13 recall=0.65
+Downstairs: support=20 correct=8  recall=0.40
+Sitting:    support=20 correct=18 recall=0.90
+Standing:   support=20 correct=20 recall=1.00
+```
+
+Confusion matrix:
+
+```text
+true=0 pred0=20 pred1=0  pred2=0  pred3=0 pred4=0  pred5=0
+true=1 pred0=1  pred1=18 pred2=0  pred3=1 pred4=0  pred5=0
+true=2 pred0=2  pred1=3  pred2=13 pred3=2 pred4=0  pred5=0
+true=3 pred0=4  pred1=1  pred2=7  pred3=8 pred4=0  pred5=0
+true=4 pred0=0  pred1=0  pred2=0  pred3=0 pred4=18 pred5=2
+true=5 pred0=0  pred1=0  pred2=0  pred3=0 pred4=0  pred5=20
+```
+
+Parsed outputs:
+
+- [`results/tables/wisdm_device_eval_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_summary.csv:1)
+- [`results/tables/wisdm_device_eval_per_class_smoke_120.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_per_class_smoke_120.csv:1)
+- [`results/tables/wisdm_device_eval_confusion_smoke_120.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_confusion_smoke_120.csv:1)
+
+**Interpretation**:
+
+- Stage 1 gate пройдений: ESP32 booted, 120 WISDM windows processed, summary/confusion matrix printed.
+- Mean inference latency `171.714 ms` узгоджується з попередніми MicroFlow-32 hardware measurements.
+- Загальна accuracy на tiny balanced smoke subset: `80.83%`.
+- Найслабша пара лишається `Upstairs/Downstairs`, що узгоджується з раніше зафіксованою складністю цих класів у WISDM.
+
+**Scope boundaries**:
+
+- `main.rs` не змінювався.
+- Normal MPU6050/sensor firmware не змінювалась.
+- UART labels не використовувались.
+- ReplayBuffer і CL training не використовувались.
+- Persistence/NVS/flash writes не додавались.
+- Real MPU6050 pilot не перезапускався.
+- Це device-side WISDM subset sanity evaluation, не full LOSO CV на ESP32.
+
+**Висновок**:
+
+- Безпечно переходити до Stage 2 `balanced_600`, але тільки окремим gated кроком.
+- Stage 3 у початковому вигляді `balanced_1200 = 200/class` неможливий без зміни протоколу, бо `Sitting` має тільки `180` windows у final corpus.

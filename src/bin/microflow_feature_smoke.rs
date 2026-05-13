@@ -75,12 +75,7 @@ fn main() -> ! {
     info!("backend={}", backend.backend_name());
     info!(
         "latency_us={}, checksum={}, f0={}, f1={}, f2={}, f3={}",
-        elapsed_us,
-        checksum,
-        features[0],
-        features[1],
-        features[2],
-        features[3],
+        elapsed_us, checksum, features[0], features[1], features[2], features[3],
     );
 
     loop {

@@ -45,7 +45,11 @@ pub fn dequantize_feature_tensor(
     out: &mut [f32; FEATURE_TENSOR_SIZE],
 ) {
     for i in 0..FEATURE_TENSOR_SIZE {
-        out[i] = dequantize_scalar(quantized[i], FEATURE_OUTPUT_SCALE, FEATURE_OUTPUT_ZERO_POINT);
+        out[i] = dequantize_scalar(
+            quantized[i],
+            FEATURE_OUTPUT_SCALE,
+            FEATURE_OUTPUT_ZERO_POINT,
+        );
     }
 }
 

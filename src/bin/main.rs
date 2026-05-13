@@ -7,30 +7,18 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
-use esp_hal::{
-    clock::CpuClock,
-    gpio::{Level, Output, OutputConfig},
-    i2c::master::{Config as I2cConfig, Error as I2cError, I2c},
-    main,
-    time::{Duration, Instant, Rate},
-};
 #[cfg(all(
     feature = "microflow32_backend",
     not(feature = "microflow_backend"),
     feature = "cl_uart_labels"
 ))]
 use esp_hal::uart::{Config as UartConfig, Uart};
-use esp32_cl_har::{
-    model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
-    mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
-    quant::quantize_window,
-    window::SlidingWindow,
-};
-#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
-use esp32_cl_har::{
-    inference::{FrozenInferenceBackend, InferenceError},
-    model::{FEATURE_TENSOR_SIZE, NUM_CLASSES},
-    quant::dequantize_feature_tensor,
+use esp_hal::{
+    clock::CpuClock,
+    gpio::{Level, Output, OutputConfig},
+    i2c::master::{Config as I2cConfig, Error as I2cError, I2c},
+    main,
+    time::{Duration, Instant, Rate},
 };
 #[cfg(feature = "microflow_backend")]
 use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
@@ -46,6 +34,18 @@ use esp32_cl_har::online_layer::OnlineLayer32;
     feature = "cl_uart_labels"
 ))]
 use esp32_cl_har::replay_buffer::{REPLAY_SLOTS_PER_CLASS, ReplayBuffer32, ReplayStrategy};
+#[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
+use esp32_cl_har::{
+    inference::{FrozenInferenceBackend, InferenceError},
+    model::{FEATURE_TENSOR_SIZE, NUM_CLASSES},
+    quant::dequantize_feature_tensor,
+};
+use esp32_cl_har::{
+    model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
+    mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
+    quant::quantize_window,
+    window::SlidingWindow,
+};
 use log::info;
 #[cfg(all(
     feature = "microflow32_backend",
@@ -182,9 +182,7 @@ fn replay_policy_name(policy: ReplayStrategy) -> &'static str {
     }
 }
 
-fn probe_sensor<'d>(
-    i2c: &mut I2c<'d, esp_hal::Blocking>,
-) -> Result<(Mpu6050, u8), I2cError> {
+fn probe_sensor<'d>(i2c: &mut I2c<'d, esp_hal::Blocking>) -> Result<(Mpu6050, u8), I2cError> {
     for address in [DEFAULT_ADDRESS, ALT_ADDRESS] {
         let sensor = Mpu6050::new(address);
         match sensor.init(i2c) {
@@ -213,7 +211,9 @@ fn main() -> ! {
     let mut led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(100));
     let mut i2c = match I2c::new(peripherals.I2C0, i2c_config) {
-        Ok(i2c) => i2c.with_sda(peripherals.GPIO21).with_scl(peripherals.GPIO22),
+        Ok(i2c) => i2c
+            .with_sda(peripherals.GPIO21)
+            .with_scl(peripherals.GPIO22),
         Err(err) => {
             info!("i2c init error: {}", err);
             loop {}
@@ -433,7 +433,10 @@ fn main() -> ! {
                                 features[3],
                             );
 
-                            #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+                            #[cfg(all(
+                                feature = "microflow32_backend",
+                                not(feature = "microflow_backend")
+                            ))]
                             {
                                 let online_started = Instant::now();
                                 let probs = online_layer.forward(&features);
@@ -480,8 +483,11 @@ fn main() -> ! {
                                             labels_since_update =
                                                 labels_since_update.saturating_add(1);
                                             let push_started = Instant::now();
-                                            let insert =
-                                                replay.push(label, features, ACTIVE_CL_REPLAY_POLICY);
+                                            let insert = replay.push(
+                                                label,
+                                                features,
+                                                ACTIVE_CL_REPLAY_POLICY,
+                                            );
                                             let push_us = push_started.elapsed().as_micros();
                                             let added = insert.is_some();
                                             let class_len = replay.class_len(label).unwrap_or(0);
@@ -542,18 +548,22 @@ fn main() -> ! {
                             }
 
                             if inference_attempts % LATENCY_REPORT_EVERY_ATTEMPTS == 0 {
-                                let latency_mean_us = latency_sum_us / u64::from(inference_attempts);
+                                let latency_mean_us =
+                                    latency_sum_us / u64::from(inference_attempts);
                                 info!(
                                     "microflow latency stats: attempts={}, min_us={}, mean_us={}, max_us={}",
                                     inference_attempts,
                                     latency_min_us,
                                     latency_mean_us,
-                                latency_max_us,
+                                    latency_max_us,
                                 );
                             }
                         }
 
-                        #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
+                        #[cfg(not(any(
+                            feature = "microflow_backend",
+                            feature = "microflow32_backend"
+                        )))]
                         {
                             let class_result =
                                 inference.classify(&quantized_input, &mut classifier_output);
@@ -577,8 +587,7 @@ fn main() -> ! {
                                 | (_, Err(InferenceError::BackendUnavailable)) => {
                                     info!(
                                         "frozen inference backend stub hit: attempt={}, input_q0={}",
-                                        inference_attempts,
-                                        quantized_input[0],
+                                        inference_attempts, quantized_input[0],
                                     );
                                 }
                             }
@@ -611,8 +620,7 @@ fn main() -> ! {
             Err(err) => {
                 info!(
                     "mpu6050 accel read error after {} samples: {}",
-                    sample_count,
-                    err
+                    sample_count, err
                 );
             }
         }

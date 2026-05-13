@@ -14,7 +14,7 @@ use esp_hal::{
 use esp32_cl_har::{
     inference_microflow::MicroflowFeatureBackend,
     model::{FEATURE_COUNT, FEATURE_TENSOR_SIZE, INPUT_TENSOR_SIZE, WINDOW_SIZE},
-    quant::{quantize_scalar, INPUT_SCALE, INPUT_ZERO_POINT},
+    quant::{INPUT_SCALE, INPUT_ZERO_POINT, quantize_scalar},
 };
 use log::info;
 
@@ -81,12 +81,7 @@ fn main() -> ! {
     );
     info!(
         "latency_us={}, checksum={}, f0={}, f1={}, f2={}, f3={}",
-        elapsed_us,
-        checksum,
-        features[0],
-        features[1],
-        features[2],
-        features[3],
+        elapsed_us, checksum, features[0], features[1], features[2], features[3],
     );
 
     loop {

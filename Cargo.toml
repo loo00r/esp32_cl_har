@@ -31,6 +31,11 @@ required-features = ["microflow32_backend"]
 name = "mpu_domain_shift_probe"
 path = "./src/bin/mpu_domain_shift_probe.rs"
 
+[[bin]]
+name = "wisdm_device_eval"
+path = "./src/bin/wisdm_device_eval.rs"
+required-features = ["microflow32_backend"]
+
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]
