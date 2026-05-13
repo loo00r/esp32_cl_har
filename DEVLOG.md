@@ -3843,3 +3843,212 @@ balanced_600:  total=600 correct=478 accuracy=0.7966667  mean_infer_us=171714
 - Stage 2 gate пройдений.
 - Stage 3 у формі `balanced_1200 = 200/class` не можна запускати без зміни протоколу, бо `Sitting` має лише `180` windows у final corpus.
 - Наступний безпечний варіант: або зупинити WISDM device-side eval на `balanced_600` як paper-safe result, або окремим рішенням змінити Stage 3 на `balanced_1080 = 180/class`.
+
+## Фаза 7c — Target-user audit для LOSO-style CL experiment
+
+**Що зроблено**: перевірено, як саме тренувався поточний `MicroFlow-32` artifact, і додано PC-only audit для вибору target user під майбутній held-out continual learning experiment.
+
+**Важливий висновок по training protocol**:
+
+У notebook є два різні режими:
+
+```text
+1. LOSO baseline evaluation:
+   train users != test user
+   z-score stats fit only on train users
+
+2. Final deployed MicroFlow-32 artifact:
+   trained on X_final from the full WISDM corpus
+   validation_split=0.1
+   final z-score stats fit on full df_model
+```
+
+Отже, поточний embedded `MicroFlow-32 + OnlineLayer32` artifact не є fold-specific і не може використовуватись як чистий user-held-out WISDM CL baseline.
+
+**Додано**:
+
+- [`scripts/audit_wisdm_target_users.py`](/home/g00n3r/projects/esp32_cl_har/scripts/audit_wisdm_target_users.py:1)
+- [`results/tables/wisdm_target_user_audit.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_target_user_audit.csv:1)
+
+**Команда**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/audit_wisdm_target_users.py
+```
+
+**Результат audit**:
+
+```text
+rows=36
+output=results/tables/wisdm_target_user_audit.csv
+```
+
+Top candidate:
+
+```text
+user=7
+total=303
+coverage=6
+min_nonzero=10
+Walking=121
+Jogging=89
+Upstairs=41
+Downstairs=13
+Sitting=10
+Standing=29
+```
+
+Інші сильні кандидати:
+
+```text
+user=8  total=359 coverage=6 min_nonzero=7
+user=19 total=208 coverage=6 min_nonzero=7
+user=31 total=497 coverage=6 min_nonzero=6
+```
+
+**Interpretation**:
+
+- `user=7` є найкращим першим target user для staged LOSO-style CL experiment, бо має всі `6` класів і найбільший мінімальний support серед повністю покритих users.
+- Класи `Sitting` і `Downstairs` усе одно мають малий support, тому перший target-user experiment треба проектувати обережно.
+- `balanced_600` лишається device-side inference sanity check, не CL result.
+- Для справжнього WISDM CL result треба окремо train/export fold-specific `MicroFlow-32` без target user.
+
+**Синхронізовано документацію**:
+
+- [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
+  - додано staged target-user CL evaluation items
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+  - додано target-user CL direction і candidate `user=7`
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- `wisdm_device_eval` не запускався повторно.
+- model artifacts не перетреновувались.
+- git не чіпався.
+
+**Висновок**:
+
+- Так, target-user CL experiment варто робити, але тільки новою staged фазою.
+- Наступний малий крок: PC-side fold-specific training/export для `target_user=7`, без firmware changes.
+
+## Фаза 7d — Fold-specific `MicroFlow-32` export для `target_user=7`
+
+**Що зроблено**: реалізовано і виконано PC-side fold-specific training/export для майбутнього target-user CL experiment. Модель тренується на всіх WISDM users, крім `user=7`, а target-user windows генеруються окремо для майбутнього device-side pre/post adaptation.
+
+**Додано**:
+
+- [`scripts/train_wisdm_fold_microflow32.py`](/home/g00n3r/projects/esp32_cl_har/scripts/train_wisdm_fold_microflow32.py:1)
+
+**Команда**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 7 --epochs 10
+```
+
+**Output directory**:
+
+- [`results/fold_artifacts/wisdm_user7_microflow32/`](/home/g00n3r/projects/esp32_cl_har/results/fold_artifacts/wisdm_user7_microflow32:1)
+
+Generated files:
+
+```text
+microflow32_user7_classifier_int8.tflite
+microflow32_user7_classifier_int8_metadata.json
+microflow32_user7_feature_extractor_int8.tflite
+microflow32_user7_feature_extractor_int8_metadata.json
+microflow32_user7_head_float.json
+wisdm_user7_target_windows_i8.bin
+wisdm_user7_target_labels_u8.bin
+wisdm_user7_target_metadata.json
+wisdm_user7_target_predictions.csv
+wisdm_user7_target_tflite_confusion.csv
+wisdm_user7_target_tflite_per_class.csv
+```
+
+**Summary CSV**:
+
+- [`results/tables/wisdm_fold_user7_microflow32_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_fold_user7_microflow32_summary.csv:1)
+
+Summary:
+
+```text
+target_user=7
+train_windows=8851
+target_windows=303
+representative_samples=192
+epochs=10
+batch_size=64
+final_train_accuracy=0.8608914
+final_val_accuracy=0.7889391
+target_keras_accuracy=0.9108911
+target_tflite_accuracy=0.8910891
+classifier_tflite_bytes=9504
+feature_tflite_bytes=8200
+target_windows_bytes=72720
+target_labels_bytes=303
+```
+
+Target distribution:
+
+```text
+Walking=121
+Jogging=89
+Upstairs=41
+Downstairs=13
+Sitting=10
+Standing=29
+```
+
+TFLite target-user per-class recall:
+
+```text
+Walking:    support=121 correct=121 recall=1.0000
+Jogging:    support=89  correct=84  recall=0.9438
+Upstairs:   support=41  correct=24  recall=0.5854
+Downstairs: support=13  correct=2   recall=0.1538
+Sitting:    support=10  correct=10  recall=1.0000
+Standing:   support=29  correct=29  recall=1.0000
+```
+
+TFLite confusion matrix:
+
+```text
+Walking:    pred_Walking=121
+Jogging:    pred_Walking=1 pred_Jogging=84 pred_Upstairs=1 pred_Downstairs=3
+Upstairs:   pred_Walking=17 pred_Upstairs=24
+Downstairs: pred_Walking=4 pred_Upstairs=7 pred_Downstairs=2
+Sitting:    pred_Sitting=10
+Standing:   pred_Standing=29
+```
+
+**Interpretation**:
+
+- Fold-specific artifact тепер методично чистий щодо `user=7`: target user не входить у train windows.
+- Overall target-user TFLite accuracy уже висока: `89.11%`.
+- Основний потенційний CL-сигнал для цього target user не в total accuracy, а в stair-like класах:
+  - `Upstairs recall = 58.54%`
+  - `Downstairs recall = 15.38%`
+- Це означає, що наступний CL experiment має бути сформульований як `target-user stair-like adaptation`, або як 6-class target-user run з фокусом на per-class recall.
+
+**Синхронізовано документацію**:
+
+- [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
+  - fold-specific `MicroFlow-32` artifact позначено виконаним
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+  - додано fold-specific export result і ризик високого baseline accuracy
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- production artifacts у `src/model_artifacts/` не замінювались.
+- ESP32 run не виконувався.
+- CL training на ESP32 ще не виконувався.
+- git не чіпався.
+
+**Висновок**:
+
+- Fold-specific PC artifact для `target_user=7` готовий.
+- Наступний staged крок: підготувати isolated ESP32 binary для device-side pre-adaptation evaluation на `user=7` artifacts або спочатку PC-side CL simulation, щоб перевірити, чи adaptation справді може підняти `Upstairs/Downstairs` recall.

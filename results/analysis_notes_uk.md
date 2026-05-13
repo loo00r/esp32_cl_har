@@ -148,6 +148,85 @@ The ESP32 device-side MicroFlow-32 + OnlineLayer32 inference path processed a ba
 This is a full on-device LOSO benchmark.
 ```
 
+### Target-user CL direction
+
+Після перевірки training notebook стало ясно, що поточний deployed
+`MicroFlow-32` artifact тренувався на `X_final` з усього WISDM corpus. Тому
+`balanced_600` не можна трактувати як user-held-out evaluation.
+
+Для справжнього WISDM CL experiment потрібен окремий fold-specific path:
+
+```text
+target user held out
+-> train MicroFlow-32 без target user
+-> export fold-specific feature extractor/head/z-score
+-> generate target-user windows
+-> ESP32 pre-adaptation evaluation
+-> supervised RAM-only adaptation
+-> ESP32 post-adaptation evaluation
+```
+
+PC-only audit target users:
+
+- `results/tables/wisdm_target_user_audit.csv`
+
+Найкращий поточний кандидат:
+
+```text
+user=7
+total_windows=303
+class_coverage=6
+Walking=121
+Jogging=89
+Upstairs=41
+Downstairs=13
+Sitting=10
+Standing=29
+```
+
+Це не означає, що треба одразу робити повний 6-class CL benchmark. Практичний
+перший target-user experiment може бути обмежений класами з достатнім support,
+або використовувати всі 6 класів з чесним застереженням про малий support для
+`Sitting` і `Downstairs`.
+
+Fold-specific export для `target_user=7` уже доступний:
+
+- `results/fold_artifacts/wisdm_user7_microflow32/`
+- `results/tables/wisdm_fold_user7_microflow32_summary.csv`
+
+Ключові PC-side результати:
+
+```text
+train users: all except user 7
+train_windows=8851
+target_windows=303
+representative_samples=192
+final_train_accuracy=86.09%
+final_val_accuracy=78.89%
+target_keras_accuracy=91.09%
+target_tflite_accuracy=89.11%
+```
+
+Target-user `user=7` TFLite per-class recall:
+
+```text
+Walking    100.00%
+Jogging     94.38%
+Upstairs    58.54%
+Downstairs  15.38%
+Sitting    100.00%
+Standing   100.00%
+```
+
+Інтерпретація:
+
+- `user=7` є методично чистим held-out target user, бо fold-specific model training
+  виключає цього користувача.
+- Overall target accuracy уже висока (`89.11%`), тому великий gain у total accuracy
+  може бути обмежений.
+- Науково цікавіший сигнал для target-user CL тут - чи supervised adaptation
+  покращує слабкі stair-like класи, особливо `Downstairs`, а не просто overall accuracy.
+
 ## Основні числові результати
 
 ### Resource and CL overhead
