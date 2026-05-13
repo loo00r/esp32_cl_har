@@ -4052,3 +4052,390 @@ Standing:   pred_Standing=29
 
 - Fold-specific PC artifact для `target_user=7` готовий.
 - Наступний staged крок: підготувати isolated ESP32 binary для device-side pre-adaptation evaluation на `user=7` artifacts або спочатку PC-side CL simulation, щоб перевірити, чи adaptation справді може підняти `Upstairs/Downstairs` recall.
+
+## Фаза 7e — PC-side target-user CL simulation gate
+
+**Що зроблено**: перед будь-якою ESP32 інтеграцією виконано PC-side simulation поточного `OnlineLayer32 + ReplayBuffer32` CL loop на fold-specific features для `target_user=7`.
+
+Ціль кроку: перевірити, чи є на `user=7` реальний сигнал від supervised adaptation за поточними Phase 4 параметрами, перш ніж переносити target-user CL experiment на плату.
+
+**Додано**:
+
+- [`scripts/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_wisdm_user7_cl.py:1)
+
+**Команда**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py
+```
+
+**Output**:
+
+- [`results/tables/wisdm_user7_pc_cl_simulation.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user7_pc_cl_simulation.csv:1)
+
+**Simulated protocol**:
+
+```text
+feature extractor: fold-specific MicroFlow-32 user7 TFLite artifact
+head: fold-specific microflow32_user7_head_float.json
+feature_dim=32
+slots_per_class=16
+labels_per_update=10
+batch_size=12
+learning_rate=0.001
+policies=FIFO/reservoir
+budgets_per_class=3,5,10,20
+```
+
+**Baseline**:
+
+```text
+no_adapt all:
+  total=303
+  correct=273
+  accuracy=0.90099
+  Walking recall=1.0000
+  Jogging recall=0.9438
+  Upstairs recall=0.6098
+  Downstairs recall=0.3077
+  Sitting recall=1.0000
+  Standing recall=1.0000
+```
+
+**CL simulation result**:
+
+За поточним `lr=0.001` і train-every-`10` labels adaptation не змінила predictions на held-out eval splits:
+
+```text
+budget=3/class:
+  no_adapt_eval_split accuracy=0.9018
+  FIFO accuracy=0.9018
+  reservoir accuracy=0.9018
+  Downstairs recall=0.3000
+
+budget=5/class:
+  no_adapt_eval_split accuracy=0.9011
+  FIFO accuracy=0.9011
+  reservoir accuracy=0.9011
+  Downstairs recall=0.2500
+
+budget=10/class:
+  no_adapt_eval_split accuracy=0.9098
+  FIFO accuracy=0.9098
+  reservoir accuracy=0.9098
+  Downstairs recall=0.6667
+```
+
+У `budget=20/class` effective labels не є рівномірними через малий support для `Sitting/Downstairs`; цей режим не дає коректного FIFO/reservoir висновку.
+
+**Interpretation**:
+
+- Поточний ESP32 CL protocol (`lr=0.001`, `K=10`, `batch_size=12`) не дає помітного target-user improvement для `user=7` у PC simulation.
+- `FIFO` і `reservoir` не відрізняються на цьому target user, бо class support занадто малий, щоб replay policy стала вирішальною.
+- Це не провал проекту, а корисний gate: не варто переносити цей exact target-user CL setup на ESP32 як головний experiment.
+- `balanced_600` залишається inference sanity check; real-device MPU6050 pilot залишається основним evidence prediction shift для поточної статті.
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- ESP32 не запускався.
+- production artifacts не замінювались.
+- CL simulation виконувалась тільки на PC.
+- git не чіпався.
+
+**Висновок**:
+
+- Target-user WISDM CL напрям потребує додаткового protocol design перед embedded run.
+- Найпрагматичніший шлях для поточної статті: не робити ESP32 target-user CL зараз, а використати `balanced_600` як inference sanity і основний акцент лишити на RAM-only CL resource profile + real-device MPU6050 pilot.
+
+## Фаза 7f — Target-user candidate check для `user=20`
+
+**Що зроблено**: після негативного/слабкого CL gate для `user=7` перевірено інший target user з кращим support для `Sitting` і `Walking`. За audit table найкращим кандидатом для цієї ідеї є `user=20`.
+
+**Причина вибору `user=20`**:
+
+```text
+total_windows=355
+Walking=102
+Jogging=0
+Upstairs=46
+Downstairs=50
+Sitting=90
+Standing=67
+```
+
+На відміну від `user=7`, тут `Sitting` має достатній support (`90` windows), тому це кращий кандидат для перевірки гіпотези "можемо покращити Sitting/Walking".
+
+**Команди**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 20 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 20
+```
+
+**Generated files**:
+
+- [`results/fold_artifacts/wisdm_user20_microflow32/`](/home/g00n3r/projects/esp32_cl_har/results/fold_artifacts/wisdm_user20_microflow32:1)
+- [`results/tables/wisdm_fold_user20_microflow32_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_fold_user20_microflow32_summary.csv:1)
+- [`results/tables/wisdm_user20_pc_cl_simulation.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user20_pc_cl_simulation.csv:1)
+
+**Fold-specific training/export summary**:
+
+```text
+target_user=20
+train_windows=8799
+target_windows=355
+representative_samples=192
+final_train_accuracy=0.8767521
+final_val_accuracy=0.8011364
+target_keras_accuracy=0.9295775
+target_tflite_accuracy=0.9183099
+classifier_tflite_bytes=9504
+feature_tflite_bytes=8200
+target_windows_bytes=85200
+target_labels_bytes=355
+```
+
+**Baseline per-class recall**:
+
+```text
+Walking:    1.0000
+Jogging:    0.0000  # no target samples
+Upstairs:   0.9130
+Downstairs: 0.6000
+Sitting:    0.9444
+Standing:   1.0000
+```
+
+**PC CL simulation result**:
+
+```text
+budget=5/class:
+  no_adapt_eval_split accuracy=0.9333
+  FIFO accuracy=0.9333
+  reservoir accuracy=0.9333
+  Downstairs recall: 0.6667 -> 0.6889
+
+budget=10/class:
+  no_adapt_eval_split accuracy=0.9475
+  FIFO accuracy=0.9443
+  reservoir accuracy=0.9443
+  Downstairs recall: 0.7500 -> 0.7750
+
+budget=20/class:
+  no_adapt_eval_split accuracy=0.9922
+  FIFO accuracy=0.9804
+  reservoir accuracy=0.9804
+  Downstairs recall: 0.9333 -> 1.0000
+```
+
+**Interpretation**:
+
+- `user=20` не дає очікуваного "Sitting/Walking improvement", бо `Walking` уже `100%`, а `Sitting` уже `94.44%` до адаптації.
+- Є невеликий сигнал для `Downstairs`, але він не покращує total accuracy.
+- FIFO і reservoir знову не розходяться значимо, бо поточний simulated protocol і target distribution не створюють ситуацію, де replay policy є основним фактором.
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- ESP32 не запускався.
+- production artifacts не замінювались.
+- git не чіпався.
+
+**Висновок**:
+
+- Гіпотеза "взяти user з нормальним Sitting/Walking support і показати покращення Sitting/Walking" не підтвердилась для `user=20`.
+- Причина не в помилці коду, а в тому, що baseline already strong для цих простих класів.
+- Для WISDM target-user CL треба шукати інший сценарій: або клас/користувач із реально слабким baseline і достатнім support, або інший protocol, що моделює domain shift/adaptation чіткіше.
+
+## Фаза 7g — PC-only CL split gate на `balanced_600`
+
+**Що зроблено**: замість продовження пошуку target users перевірено гіпотезу, що саме `balanced_600` inference-only результат приблизно `80%` може бути покращений через CL, якщо зробити чистий adaptation/evaluation split без leakage.
+
+**Додано**:
+
+- [`scripts/simulate_balanced600_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_balanced600_cl.py:1)
+
+**Команда**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_balanced600_cl.py --adaptation-per-class 20
+```
+
+**Output**:
+
+- [`results/tables/wisdm_balanced600_pc_cl_split_20perclass.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_balanced600_pc_cl_split_20perclass.csv:1)
+
+**Protocol**:
+
+```text
+source artifact: src/eval_artifacts/wisdm_eval_windows_i8_balanced_600.bin
+labels: src/eval_artifacts/wisdm_eval_labels_u8_balanced_600.bin
+adaptation split: first 20 windows/class = 120 labeled windows
+evaluation split: remaining 80 windows/class = 480 held-out windows
+feature extractor: final-corpus MicroFlow-32 feature extractor
+head: final-corpus OnlineLayer32 pretrained head
+lr=0.001
+labels_per_update=10
+batch_size=12
+replay slots/class=16
+train_updates=12
+policies=FIFO/reservoir
+```
+
+**Result**:
+
+```text
+no_adapt:
+  total=480
+  correct=382
+  accuracy=0.7958
+  Upstairs recall=0.7500
+  Downstairs recall=0.2375
+
+FIFO:
+  total=480
+  correct=385
+  accuracy=0.8021
+  Upstairs recall=0.7750
+  Downstairs recall=0.2625
+
+reservoir:
+  total=480
+  correct=385
+  accuracy=0.8021
+  Upstairs recall=0.7750
+  Downstairs recall=0.2625
+```
+
+**Interpretation**:
+
+- Це перший WISDM PC gate, де поточний lightweight CL loop дає позитивний signal без train-on-test leakage.
+- Signal малий:
+  - overall `+0.63 percentage points`
+  - `Upstairs +2.5 pp`
+  - `Downstairs +2.5 pp`
+- FIFO і reservoir однакові в цьому gate, бо adaptation budget `20/class` і replay capacity `16/class` ще не створюють суттєвої різниці між policies.
+- Результат не є сильним accuracy claim, але він корисний як bounded justification для наступного staged device-side CL split experiment.
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- ESP32 не запускався.
+- raw logs не змінювались.
+- production artifacts не замінювались.
+- git не чіпався.
+
+**Висновок**:
+
+- Так, CL може трохи підняти `balanced_600` inference-only result, але очікуваний gain малий за поточним protocol.
+- Наступний крок можна робити тільки staged: isolated ESP32 binary для `balanced_600` split pre/adapt/post, без sensor firmware і без `main.rs`.
+
+## Фаза 7h — PC-side multi-user target screening для WISDM CL
+
+**Що зроблено**: після уточнення, що `balanced_600` є змішаним subset sanity check, а не target-user CL experiment, виконано PC-only screening кількох WISDM target users. Мета була знайти user-а, де:
+
+- train users exclude target user;
+- baseline має достатньо слабке місце;
+- OnlineLayer-only adaptation може дати meaningful gain на held-out eval split;
+- результат не залежить від `full_9154` прогону або змішаного random subset.
+
+**Додано / оновлено**:
+
+- [`scripts/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_wisdm_user7_cl.py:1)
+  - узагальнено на `--target-user`
+  - додано `--lrs`
+  - output rows тепер містять `lr`
+- [`scripts/summarize_wisdm_target_user_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/summarize_wisdm_target_user_cl.py:1)
+- [`results/tables/wisdm_target_user_cl_screening_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_target_user_cl_screening_summary.csv:1)
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+- [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
+
+**Команди**:
+
+```bash
+/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 27 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 27 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+
+/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 8 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 8 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+
+/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 19 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 19 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 20 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 7 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+
+/home/g00n3r/.venvs/base/bin/python scripts/summarize_wisdm_target_user_cl.py \
+  results/tables/wisdm_user7_pc_cl_simulation.csv \
+  results/tables/wisdm_user8_pc_cl_simulation.csv \
+  results/tables/wisdm_user19_pc_cl_simulation.csv \
+  results/tables/wisdm_user20_pc_cl_simulation.csv \
+  results/tables/wisdm_user27_pc_cl_simulation.csv
+```
+
+**Screened users**:
+
+```text
+user=7   target_windows=303  baseline target_tflite_accuracy≈89-90%
+user=8   target_windows=359  baseline target_tflite_accuracy=88.86%
+user=19  target_windows=208  baseline target_tflite_accuracy=71.15%
+user=20  target_windows=355  baseline target_tflite_accuracy≈92%
+user=27  target_windows=162  baseline target_tflite_accuracy=79.63%
+```
+
+**Найкращий gate**:
+
+```text
+target_user=19
+budget=10 labels/class
+lr=0.01
+policy=FIFO або reservoir
+held-out no_adapt accuracy=73.03%
+held-out adapted accuracy=80.26%
+overall gain=+7.24 pp
+macro recall gain=+13.10 pp
+Downstairs recall: 0.00% -> 78.57%
+```
+
+Додатково:
+
+```text
+user=19 budget=5 lr=0.01:
+  accuracy 71.35% -> 75.28%
+  gain +3.93 pp
+  Downstairs 0.00% -> 42.11%
+
+user=19 budget=20 lr=0.01:
+  reservoir accuracy 76.47% -> 80.39%
+  gain +3.92 pp
+  Downstairs 0.00% -> 100.00%
+```
+
+**Негативні / слабкі gates**:
+
+- `user=7`: adaptation майже не змінює результат; baseline уже високий.
+- `user=20`: `Sitting/Walking` уже сильні, Downstairs трохи росте, але overall не покращується.
+- `user=27`: weak classes є, але FIFO/reservoir не дають positive overall gain; більші `lr` часто погіршують.
+- `user=8`: `Downstairs` можна підняти, але ціною помітного просідання overall accuracy.
+
+**Інтерпретація**:
+
+- `user=19` є першим clean target-user WISDM PC gate, який проходить критерій meaningful gain:
+  - overall `+3 pp` або більше;
+  - weak class `+10 pp` або більше.
+- Це не `full_9154`, не mixed-user subset і не device-side result.
+- Це PC-only evidence, що поточний lightweight `OnlineLayer32` protocol може працювати для конкретного held-out user scenario.
+- Науково правильний наступний крок: не гнати `full_9154`, а підготувати isolated ESP32 binary для `user=19` pre/adapt/post CL run.
+
+**Межі кроку**:
+
+- firmware не змінювалась.
+- `main.rs` не змінювався.
+- ESP32 не запускався.
+- raw hardware logs не змінювались.
+- ReplayBuffer firmware path не чіпався.
+- git не чіпався.

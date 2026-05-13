@@ -227,6 +227,229 @@ Standing   100.00%
 - Науково цікавіший сигнал для target-user CL тут - чи supervised adaptation
   покращує слабкі stair-like класи, особливо `Downstairs`, а не просто overall accuracy.
 
+PC-side CL simulation для `user=7`:
+
+- `results/tables/wisdm_user7_pc_cl_simulation.csv`
+
+Симуляція повторює поточний малий ESP32 CL loop:
+
+```text
+feature_dim=32
+slots_per_class=16
+labels_per_update=10
+batch_size=12
+learning_rate=0.001
+policies=FIFO/reservoir
+```
+
+Результат gate:
+
+```text
+no_adapt all:
+  accuracy=90.10%
+  Upstairs recall=60.98%
+  Downstairs recall=30.77%
+
+budget=3/class:
+  no_adapt_eval_split accuracy=90.18%
+  FIFO accuracy=90.18%
+  reservoir accuracy=90.18%
+
+budget=5/class:
+  no_adapt_eval_split accuracy=90.11%
+  FIFO accuracy=90.11%
+  reservoir accuracy=90.11%
+
+budget=10/class:
+  no_adapt_eval_split accuracy=90.98%
+  FIFO accuracy=90.98%
+  reservoir accuracy=90.98%
+```
+
+Інтерпретація:
+
+- За поточним `lr=0.001` і `K=10` OnlineLayer adaptation майже не змінює
+  predictions для `user=7`.
+- `FIFO` і `reservoir` не відрізняються на цих малих budgets, бо рідкі класи
+  не перевищують replay capacity.
+- Device-side target-user CL run поки не варто подавати як expected improvement
+  experiment. Перед ESP32 інтеграцією треба або змінити adaptation protocol
+  на PC, або трактувати цей напрям як negative gate.
+
+Додатково перевірено `target_user=20`, бо він має значно кращий support для
+`Sitting/Walking`:
+
+```text
+target_user=20
+target_windows=355
+Walking=102
+Upstairs=46
+Downstairs=50
+Sitting=90
+Standing=67
+Jogging=0
+```
+
+Fold-specific baseline:
+
+```text
+target_tflite_accuracy=91.83%
+Walking recall=100.00%
+Sitting recall=94.44%
+Downstairs recall=60.00%
+```
+
+PC-side CL simulation:
+
+```text
+budget=5/class:
+  no_adapt_eval_split accuracy=93.33%
+  FIFO/reservoir accuracy=93.33%
+  Downstairs recall: 66.67% -> 68.89%
+
+budget=10/class:
+  no_adapt_eval_split accuracy=94.75%
+  FIFO/reservoir accuracy=94.43%
+  Downstairs recall: 75.00% -> 77.50%
+
+budget=20/class:
+  no_adapt_eval_split accuracy=99.22%
+  FIFO/reservoir accuracy=98.04%
+  Downstairs recall: 93.33% -> 100.00%
+```
+
+Інтерпретація:
+
+- `user=20` не підходить для демонстрації покращення `Sitting/Walking`, бо ці класи
+  вже мають дуже високий baseline recall.
+- CL трохи піднімає `Downstairs`, але не покращує overall accuracy.
+- Це підтверджує, що WISDM target-user CL result не треба поспіхом переносити
+  на ESP32 без окремого protocol redesign або пошуку іншого target scenario.
+
+### Multi-user target screening
+
+Після негативних/слабких gates для `user=7` і `user=20` виконано PC-only
+screening кількох target users. Це не device-side experiment і не `full_9154`
+run. Мета - знайти held-out user, де baseline має достатньо слабке місце, а
+RAM-only head adaptation може дати числовий gain без train-on-test leakage.
+
+Виконані users:
+
+```text
+user=7
+user=8
+user=19
+user=20
+user=27
+```
+
+Для кожного user:
+
+```text
+train fold-specific MicroFlow-32 без target user
+evaluate target-user baseline
+run PC-side FIFO/reservoir adaptation simulation
+budgets: 5 / 10 / 20 labels per class
+learning rates: 0.001 / 0.003 / 0.01
+held-out evaluation split after adaptation sample selection
+```
+
+Зведений файл:
+
+- `results/tables/wisdm_target_user_cl_screening_summary.csv`
+
+Найкращий positive gate:
+
+```text
+target_user=19
+target_windows=208
+baseline target_tflite_accuracy=71.15%
+
+budget=10/class
+lr=0.01
+policy=FIFO або reservoir
+
+held-out no_adapt accuracy=73.03%
+held-out adapted accuracy=80.26%
+overall gain=+7.24 percentage points
+macro recall gain=+13.10 percentage points
+Downstairs recall: 0.00% -> 78.57%
+```
+
+Для `budget=5/class`, `lr=0.01`:
+
+```text
+accuracy: 71.35% -> 75.28%
+overall gain=+3.93 pp
+Downstairs recall: 0.00% -> 42.11%
+```
+
+Для `budget=20/class`, `lr=0.01`:
+
+```text
+reservoir accuracy: 76.47% -> 80.39%
+overall gain=+3.92 pp
+Downstairs recall: 0.00% -> 100.00%
+```
+
+Інтерпретація:
+
+- `user=19` є першим target-user WISDM scenario, де поточний lightweight
+  OnlineLayer update показує meaningful PC-side gain.
+- Gain не походить від змішаного `balanced_600`; train users exclude target user.
+- Сигнал сконцентрований у слабкому stair-like класі `Downstairs`, тоді як
+  `Walking/Jogging/Sitting/Standing` уже були сильними.
+- FIFO і reservoir однакові або дуже близькі в цьому PC gate, бо поточний порядок
+  adaptation samples і replay capacity ще не створюють сильного розходження між
+  policies.
+- Це достатня підстава готувати isolated ESP32 target-user CL binary для
+  `user=19`, але не підстава змінювати `main.rs` або запускати `full_9154`.
+
+PC-only `balanced_600` CL split gate:
+
+- `results/tables/wisdm_balanced600_pc_cl_split_20perclass.csv`
+
+Протокол:
+
+```text
+source: existing balanced_600 artifact
+adaptation: first 20 windows/class = 120 labeled windows
+evaluation: remaining 80 windows/class = 480 held-out windows
+no overlap between adaptation and evaluation
+lr=0.001
+labels_per_update=10
+batch_size=12
+updates=12
+```
+
+Результат:
+
+```text
+no_adapt:
+  accuracy=79.58%
+  Upstairs recall=75.00%
+  Downstairs recall=23.75%
+
+FIFO:
+  accuracy=80.21%
+  Upstairs recall=77.50%
+  Downstairs recall=26.25%
+
+reservoir:
+  accuracy=80.21%
+  Upstairs recall=77.50%
+  Downstairs recall=26.25%
+```
+
+Інтерпретація:
+
+- Це перший clean PC gate, де CL дає невеликий positive signal без train-on-test leakage.
+- Приріст малий: `+0.63 pp` overall accuracy, `+2.5 pp` для `Upstairs` і `Downstairs`.
+- FIFO і reservoir однакові, бо `20/class` adaptation майже не створює різниці між replay policies при `16 slots/class`.
+- Цей результат може виправдати короткий device-side staged run, але не як сильний
+  фінальний accuracy claim. Його правильна роль - показати, що CL direction на WISDM
+  має слабкий, але реальний signal; основний paper claim все одно лишається resource/feasibility.
+
 ## Основні числові результати
 
 ### Resource and CL overhead

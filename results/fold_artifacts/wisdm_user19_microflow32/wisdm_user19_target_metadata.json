@@ -1,0 +1,21 @@
+{
+  "axes": 3,
+  "class_distribution": {
+    "Downstairs": 24,
+    "Jogging": 30,
+    "Sitting": 7,
+    "Standing": 22,
+    "Upstairs": 50,
+    "Walking": 75
+  },
+  "flat_len": 240,
+  "input_scale": 0.030996151268482208,
+  "input_zero_point": 3,
+  "num_windows": 208,
+  "source": "held-out target user windows normalized with train-user z-score stats",
+  "target_subjects_unique": [
+    19
+  ],
+  "target_user": 19,
+  "window_size": 80
+}

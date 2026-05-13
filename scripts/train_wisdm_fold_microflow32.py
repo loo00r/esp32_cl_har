@@ -38,8 +38,8 @@ from export_wisdm_device_eval_artifact import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "data" / "WISDM_ar_v1.1" / "WISDM_ar_v1.1_raw.txt"
-DEFAULT_OUT_DIR = PROJECT_ROOT / "results" / "fold_artifacts" / "wisdm_user7_microflow32"
-SUMMARY_PATH = PROJECT_ROOT / "results" / "tables" / "wisdm_fold_user7_microflow32_summary.csv"
+DEFAULT_OUT_ROOT = PROJECT_ROOT / "results" / "fold_artifacts"
+SUMMARY_DIR = PROJECT_ROOT / "results" / "tables"
 
 MICROFLOW_FEATURE_DIM = 32
 NUM_CLASSES = len(ACTIVITY_ORDER)
@@ -299,19 +299,28 @@ def build_fold_data(target_user: int):
     return x_train, y_train, train_subjects, x_target, y_target, target_subjects, train_means, train_stds
 
 
+def default_out_dir(target_user: int) -> Path:
+    return DEFAULT_OUT_ROOT / f"wisdm_user{target_user}_microflow32"
+
+
+def summary_path(target_user: int) -> Path:
+    return SUMMARY_DIR / f"wisdm_fold_user{target_user}_microflow32_summary.csv"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train fold-specific MicroFlow-32 for one WISDM target user.")
     parser.add_argument("--target-user", type=int, default=7)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument("--out-dir", type=Path, default=None)
     args = parser.parse_args()
 
     set_reproducibility(args.seed)
-    out_dir = args.out_dir
+    out_dir = args.out_dir or default_out_dir(args.target_user)
     out_dir.mkdir(parents=True, exist_ok=True)
-    SUMMARY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    summary_csv_path = summary_path(args.target_user)
+    summary_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     x_train, y_train, _train_subjects, x_target, y_target, target_subjects, train_means, train_stds = build_fold_data(
         args.target_user
@@ -427,7 +436,7 @@ def main() -> int:
         "target_labels_bytes": target_labels_path.stat().st_size,
     }
 
-    with SUMMARY_PATH.open("w", newline="", encoding="utf-8") as handle:
+    with summary_csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(summary.keys()))
         writer.writeheader()
         writer.writerow(summary)
