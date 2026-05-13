@@ -94,6 +94,60 @@ Frozen MicroFlow-32 feature extractor
 - `results/figures/fig_prediction_distribution_upstairs_like.png`
 - `results/figures/fig_prediction_distribution_upstairs_like.pdf`
 
+### Device-side WISDM subset evaluation
+
+Файли:
+
+- `logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt`
+- `logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt`
+- `results/tables/wisdm_device_eval_summary.csv`
+- `results/tables/wisdm_device_eval_per_class_smoke_120.csv`
+- `results/tables/wisdm_device_eval_confusion_smoke_120.csv`
+- `results/tables/wisdm_device_eval_per_class_balanced_600.csv`
+- `results/tables/wisdm_device_eval_confusion_balanced_600.csv`
+
+Це device-side WISDM subset sanity evaluation. Вона перевіряє, що embedded
+`MicroFlow-32 + OnlineLayer32` inference path може обробляти відомі WISDM windows
+без PC-side inference. Це не CL experiment, не UART dataset streaming, не ReplayBuffer
+і не full `LOSO CV` на ESP32.
+
+`balanced_600` є першим paper-safe WISDM subset результатом:
+
+```text
+total=600
+distribution=100/class x 6
+correct=478
+accuracy=79.67%
+macro_recall=79.67%
+mean_infer_us=171714
+min_infer_us=171306
+max_infer_us=173165
+app_partition_usage=245120/4128768 bytes = 5.94%
+```
+
+Per-class recall для `balanced_600`:
+
+```text
+Walking    98%
+Jogging    96%
+Upstairs   71%
+Downstairs 25%
+Sitting    88%
+Standing   100%
+```
+
+Коректний claim:
+
+```text
+The ESP32 device-side MicroFlow-32 + OnlineLayer32 inference path processed a balanced 600-window WISDM subset with 79.67% accuracy and 171.7 ms mean inference latency.
+```
+
+Некоректний claim:
+
+```text
+This is a full on-device LOSO benchmark.
+```
+
 ## Основні числові результати
 
 ### Resource and CL overhead

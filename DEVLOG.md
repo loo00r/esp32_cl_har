@@ -3704,3 +3704,142 @@ Parsed outputs:
 
 - Безпечно переходити до Stage 2 `balanced_600`, але тільки окремим gated кроком.
 - Stage 3 у початковому вигляді `balanced_1200 = 200/class` неможливий без зміни протоколу, бо `Sitting` має тільки `180` windows у final corpus.
+
+## Фаза 7b — WISDM device-side eval Stage 2 `balanced_600`
+
+**Що зроблено**: після успішного Stage 1 isolated binary `wisdm_device_eval` переключено з `smoke_120` на `balanced_600`. Логіка binary не змінювалась: той самий шлях `int8[240] -> MicroFlow-32 -> OnlineLayer32 -> confusion matrix`, без CL, ReplayBuffer, UART labels або sensor path.
+
+**Змінено**:
+
+- [`src/bin/wisdm_device_eval.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/wisdm_device_eval.rs:1)
+  - `TAG` змінено на `balanced_600`
+  - `include_bytes!` переключено на `wisdm_eval_windows_i8_balanced_600.bin`
+  - `include_bytes!` переключено на `wisdm_eval_labels_u8_balanced_600.bin`
+
+**Build**:
+
+```bash
+. $HOME/export-esp.sh && cargo build --features microflow32_backend --bin wisdm_device_eval
+```
+
+Результат:
+
+```text
+Finished `dev` profile [optimized + debuginfo]
+```
+
+**Size check**:
+
+```bash
+xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/wisdm_device_eval
+xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/debug/wisdm_device_eval
+```
+
+Основні size values:
+
+```text
+text=235534
+data=1632
+bss=194976
+dec=432142
+.rodata=182696
+```
+
+Під час flash:
+
+```text
+App/part. size: 245,120/4,128,768 bytes, 5.94%
+```
+
+**Run**:
+
+```bash
+script -q -c "timeout 420s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin wisdm_device_eval'" logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt
+```
+
+Raw log:
+
+- [`logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt:1)
+
+**Stage 2 result**:
+
+```text
+WISDM_EVAL_START tag=balanced_600 total=600
+WISDM_EVAL_SUMMARY tag=balanced_600 total=600 correct=478 accuracy=0.7966667 mean_infer_us=171714 min_infer_us=171306 max_infer_us=173165
+```
+
+Усі `600/600` windows оброблено. Panic/reset/watchdog не зафіксовано. Firmware продовжила працювати після друку summary/confusion matrix.
+
+**Per-class recall**:
+
+```text
+Walking:    support=100 correct=98  recall=0.98
+Jogging:    support=100 correct=96  recall=0.96
+Upstairs:   support=100 correct=71  recall=0.71
+Downstairs: support=100 correct=25  recall=0.25
+Sitting:    support=100 correct=88  recall=0.88
+Standing:   support=100 correct=100 recall=1.00
+```
+
+**Confusion matrix**:
+
+```text
+true=0 pred0=98 pred1=0  pred2=2  pred3=0  pred4=0  pred5=0
+true=1 pred0=2  pred1=96 pred2=1  pred3=1  pred4=0  pred5=0
+true=2 pred0=19 pred1=4  pred2=71 pred3=4  pred4=0  pred5=2
+true=3 pred0=21 pred1=3  pred2=51 pred3=25 pred4=0  pred5=0
+true=4 pred0=0  pred1=0  pred2=2  pred3=0  pred4=88 pred5=10
+true=5 pred0=0  pred1=0  pred2=0  pred3=0  pred4=0  pred5=100
+```
+
+**Parsed outputs**:
+
+Parser command:
+
+```bash
+python3 scripts/parse_wisdm_device_eval.py \
+  logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt \
+  logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt
+```
+
+Generated/updated:
+
+- [`results/tables/wisdm_device_eval_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_summary.csv:1)
+- [`results/tables/wisdm_device_eval_per_class_balanced_600.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_per_class_balanced_600.csv:1)
+- [`results/tables/wisdm_device_eval_confusion_balanced_600.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_device_eval_confusion_balanced_600.csv:1)
+
+Summary CSV тепер містить два staged rows:
+
+```text
+smoke_120:     total=120 correct=97  accuracy=0.80833334 mean_infer_us=171714
+balanced_600:  total=600 correct=478 accuracy=0.7966667  mean_infer_us=171714
+```
+
+**Синхронізовано analysis notes**:
+
+- [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
+  - додано note, що device-side WISDM balanced subset evaluation доступний
+  - зафіксовано, що це inference-only sanity evaluation, не CL і не full LOSO CV
+
+**Interpretation**:
+
+- `balanced_600` є першим paper-safe on-device WISDM subset result.
+- Accuracy `79.67%` близька до раніше зафіксованого offline LOSO macro-level baseline range, але її треба описувати як balanced subset sanity evaluation, а не як повний LOSO result.
+- Mean inference latency `171.714 ms` стабільно повторює Stage 1 і попередні MicroFlow-32 hardware measurements.
+- Найбільша помилка лишається у класі `Downstairs`: `51/100` samples передбачено як `Upstairs`, що узгоджується з відомою плутаниною stair-like класів.
+
+**Scope boundaries**:
+
+- `main.rs` не змінювався.
+- Normal MPU6050/sensor firmware не змінювалась.
+- UART dataset streaming не додано.
+- UART labels не використовувались.
+- ReplayBuffer і CL training не використовувались.
+- Persistence/NVS/flash writes не додавались.
+- Real MPU6050 pilot не перезапускався.
+
+**Висновок**:
+
+- Stage 2 gate пройдений.
+- Stage 3 у формі `balanced_1200 = 200/class` не можна запускати без зміни протоколу, бо `Sitting` має лише `180` windows у final corpus.
+- Наступний безпечний варіант: або зупинити WISDM device-side eval на `balanced_600` як paper-safe result, або окремим рішенням змінити Stage 3 на `balanced_1080 = 180/class`.

@@ -14,9 +14,9 @@ use esp32_cl_har::{
 };
 use log::info;
 
-const TAG: &str = "smoke_120";
-const WINDOWS: &[u8] = include_bytes!("../eval_artifacts/wisdm_eval_windows_i8_smoke_120.bin");
-const LABELS: &[u8] = include_bytes!("../eval_artifacts/wisdm_eval_labels_u8_smoke_120.bin");
+const TAG: &str = "balanced_600";
+const WINDOWS: &[u8] = include_bytes!("../eval_artifacts/wisdm_eval_windows_i8_balanced_600.bin");
+const LABELS: &[u8] = include_bytes!("../eval_artifacts/wisdm_eval_labels_u8_balanced_600.bin");
 const PROGRESS_EVERY: usize = 20;
 const IDLE_DELAY: Duration = Duration::from_millis(1_000);
 
