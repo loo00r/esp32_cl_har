@@ -1,0 +1,26 @@
+| policy    | phase   |   class | name       |   support |   correct |   recall_pct |
+|:----------|:--------|--------:|:-----------|----------:|----------:|-------------:|
+| fifo      | post    |       0 | Walking    |        65 |        65 |     100      |
+| fifo      | pre     |       0 | Walking    |        65 |        65 |     100      |
+| fifo      | post    |       1 | Jogging    |        20 |        20 |     100      |
+| fifo      | pre     |       1 | Jogging    |        20 |        20 |     100      |
+| fifo      | post    |       2 | Upstairs   |        40 |        13 |      32.5    |
+| fifo      | pre     |       2 | Upstairs   |        40 |        13 |      32.5    |
+| fifo      | post    |       3 | Downstairs |        14 |        11 |      78.5714 |
+| fifo      | pre     |       3 | Downstairs |        14 |         0 |       0      |
+| fifo      | post    |       4 | Sitting    |         1 |         1 |     100      |
+| fifo      | pre     |       4 | Sitting    |         1 |         1 |     100      |
+| fifo      | post    |       5 | Standing   |        12 |        12 |     100      |
+| fifo      | pre     |       5 | Standing   |        12 |        12 |     100      |
+| reservoir | post    |       0 | Walking    |        65 |        65 |     100      |
+| reservoir | pre     |       0 | Walking    |        65 |        65 |     100      |
+| reservoir | post    |       1 | Jogging    |        20 |        20 |     100      |
+| reservoir | pre     |       1 | Jogging    |        20 |        20 |     100      |
+| reservoir | post    |       2 | Upstairs   |        40 |        13 |      32.5    |
+| reservoir | pre     |       2 | Upstairs   |        40 |        13 |      32.5    |
+| reservoir | post    |       3 | Downstairs |        14 |        11 |      78.5714 |
+| reservoir | pre     |       3 | Downstairs |        14 |         0 |       0      |
+| reservoir | post    |       4 | Sitting    |         1 |         1 |     100      |
+| reservoir | pre     |       4 | Sitting    |         1 |         1 |     100      |
+| reservoir | post    |       5 | Standing   |        12 |        12 |     100      |
+| reservoir | pre     |       5 | Standing   |        12 |        12 |     100      |

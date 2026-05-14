@@ -13,7 +13,7 @@ use esp_hal::{
 use esp32_cl_har::{
     inference_microflow32::Microflow32FeatureBackend,
     model::{FEATURE_COUNT, INPUT_TENSOR_SIZE, MICROFLOW32_FEATURE_TENSOR_SIZE, WINDOW_SIZE},
-    quant::{quantize_scalar, INPUT_SCALE, INPUT_ZERO_POINT},
+    quant::{INPUT_SCALE, INPUT_ZERO_POINT, quantize_scalar},
 };
 use log::info;
 

@@ -31,13 +31,25 @@ required-features = ["microflow32_backend"]
 name = "mpu_domain_shift_probe"
 path = "./src/bin/mpu_domain_shift_probe.rs"
 
+[[bin]]
+name = "wisdm_device_eval"
+path = "./src/bin/wisdm_device_eval.rs"
+required-features = ["microflow32_backend"]
+
+[[bin]]
+name = "wisdm_user19_device_cl"
+path = "./src/bin/wisdm_user19_device_cl.rs"
+required-features = ["microflow32_backend"]
+
 [features]
 default = []
 microflow_backend = ["dep:microflow", "dep:nalgebra"]
 microflow32_backend = ["dep:microflow", "dep:nalgebra"]
+cl_uart_labels = []
+replay_fifo_policy = []
 
 [dependencies]
-esp-hal = { version = "~1.0", features = ["esp32"] }
+esp-hal = { version = "~1.0", features = ["esp32", "unstable"] }
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32"] }
 esp-println = { version = "0.13", features = ["esp32", "log"] }
 log = "0.4"

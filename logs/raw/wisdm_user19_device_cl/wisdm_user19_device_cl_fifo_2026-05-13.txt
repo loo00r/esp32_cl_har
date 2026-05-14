@@ -1,0 +1,138 @@
+Script started on 2026-05-13 14:37:27+03:00 [COMMAND="timeout 260s bash -lc '. /home/g00n3r/export-esp.sh && cargo run --features microflow32_backend,replay_fifo_policy --bin wisdm_user19_device_cl'" <not executed on terminal>]
+   Compiling esp32_cl_har v0.1.0 (/home/g00n3r/projects/esp32_cl_har)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.30s
+     Running `espflash flash --monitor --chip esp32 target/xtensa-esp32-none-elf/debug/wisdm_user19_device_cl`
+[2026-05-13T11:37:28Z INFO ] 🚀 A new version of espflash is available: v4.4.0
+[2026-05-13T11:37:28Z INFO ] Serial port: '/dev/ttyUSB0'
+[2026-05-13T11:37:28Z INFO ] Connecting...
+[2026-05-13T11:37:34Z INFO ] Using flash stub
+Chip type:         esp32 (revision v3.1)
+Crystal frequency: 40 MHz
+Flash size:        4MB
+Features:          WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+MAC address:       84:1f:e8:32:01:44
+App/part. size:    183,792/4,128,768 bytes, 4.45%
+[00:00:00] [========================================]      17/17      0x1000   [mSkipped! (checksum matches)[m                                                      [00:00:00] [========================================]       1/1       0x8000   [mSkipped! (checksum matches)[m                                                      [00:00:00] [>                                       ]       1/87      0x10000   [2K[00:00:00] [>                                       ]       2/87      0x10000   [2K[00:00:00] [=>                                      ]       3/87      0x10000   [2K[00:00:00] [=>                                      ]       4/87      0x10000   [2K[00:00:00] [==>                                     ]       5/87      0x10000   [2K[00:00:00] [==>                                     ]       6/87      0x10000   [2K[00:00:00] [===>                                    ]       7/87      0x10000   [2K[00:00:01] [===>                                    ]       8/87      0x10000   [2K[00:00:01] [====>                                   ]       9/87      0x10000   [2K[00:00:01] [====>                                   ]      10/87      0x10000   [2K[00:00:01] [=====>                                  ]      11/87      0x10000   [2K[00:00:01] [=====>                                  ]      12/87      0x10000   [2K[00:00:01] [=====>                                  ]      13/87      0x10000   [2K[00:00:01] [======>                                 ]      14/87      0x10000   [2K[00:00:01] [======>                                 ]      15/87      0x10000   [2K[00:00:01] [=======>                                ]      16/87      0x10000   [2K[00:00:01] [=======>                                ]      17/87      0x10000   [2K[00:00:02] [========>                               ]      18/87      0x10000   [2K[00:00:02] [========>                               ]      19/87      0x10000   [2K[00:00:02] [=========>                              ]      20/87      0x10000   [2K[00:00:02] [=========>                              ]      21/87      0x10000   [2K[00:00:02] [==========>                             ]      22/87      0x10000   [2K[00:00:02] [==========>                             ]      23/87      0x10000   [2K[00:00:02] [===========>                            ]      24/87      0x10000   [2K[00:00:02] [===========>                            ]      25/87      0x10000   [2K[00:00:02] [===========>                            ]      26/87      0x10000   [2K[00:00:02] [============>                           ]      27/87      0x10000   [2K[00:00:03] [============>                           ]      28/87      0x10000   [2K[00:00:03] [=============>                          ]      29/87      0x10000   [2K[00:00:03] [=============>                          ]      30/87      0x10000   [2K[00:00:03] [==============>                         ]      31/87      0x10000   [2K[00:00:03] [==============>                         ]      32/87      0x10000   [2K[00:00:03] [===============>                        ]      33/87      0x10000   [2K[00:00:03] [===============>                        ]      34/87      0x10000   [2K[00:00:03] [================>                       ]      35/87      0x10000   [2K[00:00:03] [================>                       ]      36/87      0x10000   [2K[00:00:03] [=================>                      ]      37/87      0x10000   [2K[00:00:03] [=================>                      ]      38/87      0x10000   [2K[00:00:04] [=================>                      ]      39/87      0x10000   [2K[00:00:04] [==================>                     ]      40/87      0x10000   [2K[00:00:04] [==================>                     ]      41/87      0x10000   [2K[00:00:04] [===================>                    ]      42/87      0x10000   [2K[00:00:04] [===================>                    ]      43/87      0x10000   [2K[00:00:04] [====================>                   ]      44/87      0x10000   [2K[00:00:04] [====================>                   ]      45/87      0x10000   [2K[00:00:04] [=====================>                  ]      46/87      0x10000   [2K[00:00:04] [=====================>                  ]      47/87      0x10000   [2K[00:00:04] [======================>                 ]      48/87      0x10000   [2K[00:00:05] [======================>                 ]      49/87      0x10000   [2K[00:00:05] [======================>                 ]      50/87      0x10000   [2K[00:00:05] [=======================>                ]      51/87      0x10000   [2K[00:00:05] [=======================>                ]      52/87      0x10000   [2K[00:00:05] [========================>               ]      53/87      0x10000   [2K[00:00:05] [========================>               ]      54/87      0x10000   [2K[00:00:05] [=========================>              ]      55/87      0x10000   [2K[00:00:05] [=========================>              ]      56/87      0x10000   [2K[00:00:06] [==========================>             ]      57/87      0x10000   [2K[00:00:06] [==========================>             ]      58/87      0x10000   [2K[00:00:06] [===========================>            ]      59/87      0x10000   [2K[00:00:06] [===========================>            ]      60/87      0x10000   [2K[00:00:06] [============================>           ]      61/87      0x10000   [2K[00:00:06] [============================>           ]      62/87      0x10000   [2K[00:00:06] [============================>           ]      63/87      0x10000   [2K[00:00:06] [=============================>          ]      64/87      0x10000   [2K[00:00:06] [=============================>          ]      65/87      0x10000   [2K[00:00:06] [==============================>         ]      66/87      0x10000   [2K[00:00:07] [==============================>         ]      67/87      0x10000   [2K[00:00:07] [===============================>        ]      68/87      0x10000   [2K[00:00:07] [===============================>        ]      69/87      0x10000   [2K[00:00:07] [================================>       ]      70/87      0x10000   [2K[00:00:07] [================================>       ]      71/87      0x10000   [2K[00:00:07] [=================================>      ]      72/87      0x10000   [2K[00:00:07] [=================================>      ]      73/87      0x10000   [2K[00:00:07] [==================================>     ]      74/87      0x10000   [2K[00:00:07] [==================================>     ]      75/87      0x10000   [2K[00:00:07] [==================================>     ]      76/87      0x10000   [2K[00:00:08] [===================================>    ]      77/87      0x10000   [2K[00:00:08] [===================================>    ]      78/87      0x10000   [2K[00:00:08] [====================================>   ]      79/87      0x10000   [2K[00:00:08] [====================================>   ]      80/87      0x10000   [2K[00:00:08] [=====================================>  ]      81/87      0x10000   [2K[00:00:08] [=====================================>  ]      82/87      0x10000   [2K[00:00:08] [======================================> ]      83/87      0x10000   [2K[00:00:08] [======================================> ]      84/87      0x10000   [2K[00:00:08] [=======================================>]      85/87      0x10000   [2K[00:00:08] [=======================================>]      86/87      0x10000   [2K[00:00:08] [========================================]      87/87      0x10000   [2K[00:00:08] [========================================]      87/87      0x10000  Verifying...                                                                     [1A[2K[1B[2K[1A[00:00:09] [========================================]      87/87      0x10000  Verifying... [mOK![m                                                                 [2026-05-13T11:37:44Z INFO ] Flashing has completed!
+Commands:
+    CTRL+R    Reset chip
+    CTRL+C    Exit
+
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6384
+load:0x40078000,len:15916
+load:0x40080400,len:3920
+entry 0x40080644
+I (27) boot: ESP-IDF v5.5.1-838-gd66ebb86d2e 2nd stage bootloader
+I (27) boot: compile time Nov 26 2025 10:51:37
+I (28) boot: Multicore bootloader
+I (30) boot: chip revision: v3.1
+I (33) boot.esp32: SPI Speed      : 40MHz
+I (37) boot.esp32: SPI Mode       : DIO
+I (40) boot.esp32: SPI Flash Size : 4MB
+I (44) boot: Enabling RNG early entropy source...
+I (48) boot: Partition Table:
+I (51) boot: ## Label            Usage          Type ST Offset   Length
+I (57) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (70) boot:  2 factory          factory app      00 00 00010000 003f0000
+I (77) boot: End of partition table
+I (80) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=15ea8h ( 89768) map
+I (118) esp_image: segment 1: paddr=00025ed0 vaddr=3ffb0000 size=00678h (  1656) load
+I (119) esp_image: segment 2: paddr=00026550 vaddr=40080000 size=01038h (  4152) load
+I (124) esp_image: segment 3: paddr=00027590 vaddr=00000000 size=08a88h ( 35464) 
+I (142) esp_image: segment 4: paddr=00030020 vaddr=400d0020 size=0cda8h ( 52648) map
+I (161) boot: Loaded app from partition at offset 0x10000
+I (161) boot: Disabling RNG early entropy source...
+[32mINFO - WISDM_CL_START tag=wisdm_user19_target_cl target_user=19 total=208 budget_per_class=10 lr=0.01 labels_per_update=10 batch_size=12 policy=fifo[0m
+[32mINFO - WISDM_CL_SPLIT selected_adaptation=56 held_out=152 total=208[0m
+[32mINFO - WISDM_CL_EVAL phase=pre split=all total=208 correct=148 accuracy=0.71153843 mean_infer_us=174817 min_infer_us=174639 max_infer_us=176015[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=0 name=Walking support=75 correct=75 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=1 name=Jogging support=30 correct=30 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=2 name=Upstairs support=50 correct=13 recall=0.26[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=3 name=Downstairs support=24 correct=1 recall=0.041666668[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=4 name=Sitting support=7 correct=7 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=all class=5 name=Standing support=22 correct=22 recall=1[0m
+[32mINFO - WISDM_CL_EVAL phase=pre split=held_out total=152 correct=111 accuracy=0.7302632 mean_infer_us=174818 min_infer_us=174642 max_infer_us=175344[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=0 name=Walking support=65 correct=65 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=1 name=Jogging support=20 correct=20 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=2 name=Upstairs support=40 correct=13 recall=0.325[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=3 name=Downstairs support=14 correct=0 recall=0[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=4 name=Sitting support=1 correct=1 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=pre split=held_out class=5 name=Standing support=12 correct=12 recall=1[0m
+[32mINFO - WISDM_CL_LABEL idx=0 label=3 name=Downstairs buffer_len=1 total_seen=1 infer_us=175290[0m
+[32mINFO - WISDM_CL_LABEL idx=1 label=3 name=Downstairs buffer_len=2 total_seen=2 infer_us=175146[0m
+[32mINFO - WISDM_CL_LABEL idx=2 label=3 name=Downstairs buffer_len=3 total_seen=3 infer_us=175156[0m
+[32mINFO - WISDM_CL_LABEL idx=3 label=3 name=Downstairs buffer_len=4 total_seen=4 infer_us=175119[0m
+[32mINFO - WISDM_CL_LABEL idx=4 label=3 name=Downstairs buffer_len=5 total_seen=5 infer_us=175140[0m
+[32mINFO - WISDM_CL_LABEL idx=5 label=3 name=Downstairs buffer_len=6 total_seen=6 infer_us=175116[0m
+[32mINFO - WISDM_CL_LABEL idx=6 label=3 name=Downstairs buffer_len=7 total_seen=7 infer_us=175032[0m
+[32mINFO - WISDM_CL_LABEL idx=7 label=3 name=Downstairs buffer_len=8 total_seen=8 infer_us=175055[0m
+[32mINFO - WISDM_CL_LABEL idx=8 label=3 name=Downstairs buffer_len=9 total_seen=9 infer_us=175024[0m
+[32mINFO - WISDM_CL_LABEL idx=9 label=3 name=Downstairs buffer_len=10 total_seen=10 infer_us=175059[0m
+[32mINFO - WISDM_CL_TRAIN policy=fifo step=1 batch_len=12 sample_us=63 update_us=728 adapted_labels=10 buffer_len=10 total_seen=10[0m
+[32mINFO - WISDM_CL_LABEL idx=24 label=1 name=Jogging buffer_len=11 total_seen=11 infer_us=175204[0m
+[32mINFO - WISDM_CL_LABEL idx=25 label=1 name=Jogging buffer_len=12 total_seen=12 infer_us=175201[0m
+[32mINFO - WISDM_CL_LABEL idx=26 label=1 name=Jogging buffer_len=13 total_seen=13 infer_us=175110[0m
+[32mINFO - WISDM_CL_LABEL idx=27 label=1 name=Jogging buffer_len=14 total_seen=14 infer_us=175031[0m
+[32mINFO - WISDM_CL_LABEL idx=28 label=1 name=Jogging buffer_len=15 total_seen=15 infer_us=175092[0m
+[32mINFO - WISDM_CL_LABEL idx=29 label=1 name=Jogging buffer_len=16 total_seen=16 infer_us=175126[0m
+[32mINFO - WISDM_CL_LABEL idx=30 label=1 name=Jogging buffer_len=17 total_seen=17 infer_us=175126[0m
+[32mINFO - WISDM_CL_LABEL idx=31 label=1 name=Jogging buffer_len=18 total_seen=18 infer_us=175150[0m
+[32mINFO - WISDM_CL_LABEL idx=32 label=1 name=Jogging buffer_len=19 total_seen=19 infer_us=175044[0m
+[32mINFO - WISDM_CL_LABEL idx=33 label=1 name=Jogging buffer_len=20 total_seen=20 infer_us=175018[0m
+[32mINFO - WISDM_CL_TRAIN policy=fifo step=2 batch_len=12 sample_us=22 update_us=577 adapted_labels=20 buffer_len=20 total_seen=20[0m
+[32mINFO - WISDM_CL_LABEL idx=54 label=4 name=Sitting buffer_len=21 total_seen=21 infer_us=175041[0m
+[32mINFO - WISDM_CL_LABEL idx=55 label=4 name=Sitting buffer_len=22 total_seen=22 infer_us=175033[0m
+[32mINFO - WISDM_CL_LABEL idx=56 label=4 name=Sitting buffer_len=23 total_seen=23 infer_us=175033[0m
+[32mINFO - WISDM_CL_LABEL idx=57 label=4 name=Sitting buffer_len=24 total_seen=24 infer_us=175033[0m
+[32mINFO - WISDM_CL_LABEL idx=58 label=4 name=Sitting buffer_len=25 total_seen=25 infer_us=175032[0m
+[32mINFO - WISDM_CL_LABEL idx=59 label=4 name=Sitting buffer_len=26 total_seen=26 infer_us=175032[0m
+[32mINFO - WISDM_CL_LABEL idx=61 label=5 name=Standing buffer_len=27 total_seen=27 infer_us=175134[0m
+[32mINFO - WISDM_CL_LABEL idx=62 label=5 name=Standing buffer_len=28 total_seen=28 infer_us=175133[0m
+[32mINFO - WISDM_CL_LABEL idx=63 label=5 name=Standing buffer_len=29 total_seen=29 infer_us=175078[0m
+[32mINFO - WISDM_CL_LABEL idx=64 label=5 name=Standing buffer_len=30 total_seen=30 infer_us=175106[0m
+[32mINFO - WISDM_CL_TRAIN policy=fifo step=3 batch_len=12 sample_us=20 update_us=570 adapted_labels=30 buffer_len=30 total_seen=30[0m
+[32mINFO - WISDM_CL_LABEL idx=65 label=5 name=Standing buffer_len=31 total_seen=31 infer_us=175090[0m
+[32mINFO - WISDM_CL_LABEL idx=66 label=5 name=Standing buffer_len=32 total_seen=32 infer_us=175083[0m
+[32mINFO - WISDM_CL_LABEL idx=67 label=5 name=Standing buffer_len=33 total_seen=33 infer_us=175147[0m
+[32mINFO - WISDM_CL_LABEL idx=68 label=5 name=Standing buffer_len=34 total_seen=34 infer_us=175143[0m
+[32mINFO - WISDM_CL_LABEL idx=69 label=5 name=Standing buffer_len=35 total_seen=35 infer_us=175133[0m
+[32mINFO - WISDM_CL_LABEL idx=70 label=5 name=Standing buffer_len=36 total_seen=36 infer_us=175100[0m
+[32mINFO - WISDM_CL_LABEL idx=83 label=2 name=Upstairs buffer_len=37 total_seen=37 infer_us=175181[0m
+[32mINFO - WISDM_CL_LABEL idx=84 label=2 name=Upstairs buffer_len=38 total_seen=38 infer_us=175278[0m
+[32mINFO - WISDM_CL_LABEL idx=85 label=2 name=Upstairs buffer_len=39 total_seen=39 infer_us=175264[0m
+[32mINFO - WISDM_CL_LABEL idx=86 label=2 name=Upstairs buffer_len=40 total_seen=40 infer_us=175447[0m
+[32mINFO - WISDM_CL_TRAIN policy=fifo step=4 batch_len=12 sample_us=27 update_us=569 adapted_labels=40 buffer_len=40 total_seen=40[0m
+[32mINFO - WISDM_CL_LABEL idx=87 label=2 name=Upstairs buffer_len=41 total_seen=41 infer_us=175443[0m
+[32mINFO - WISDM_CL_LABEL idx=88 label=2 name=Upstairs buffer_len=42 total_seen=42 infer_us=175442[0m
+[32mINFO - WISDM_CL_LABEL idx=89 label=2 name=Upstairs buffer_len=43 total_seen=43 infer_us=175447[0m
+[32mINFO - WISDM_CL_LABEL idx=90 label=2 name=Upstairs buffer_len=44 total_seen=44 infer_us=175471[0m
+[32mINFO - WISDM_CL_LABEL idx=91 label=2 name=Upstairs buffer_len=45 total_seen=45 infer_us=175458[0m
+[32mINFO - WISDM_CL_LABEL idx=92 label=2 name=Upstairs buffer_len=46 total_seen=46 infer_us=175492[0m
+[32mINFO - WISDM_CL_LABEL idx=133 label=0 name=Walking buffer_len=47 total_seen=47 infer_us=174968[0m
+[32mINFO - WISDM_CL_LABEL idx=134 label=0 name=Walking buffer_len=48 total_seen=48 infer_us=174984[0m
+[32mINFO - WISDM_CL_LABEL idx=135 label=0 name=Walking buffer_len=49 total_seen=49 infer_us=175030[0m
+[32mINFO - WISDM_CL_LABEL idx=136 label=0 name=Walking buffer_len=50 total_seen=50 infer_us=175022[0m
+[32mINFO - WISDM_CL_TRAIN policy=fifo step=5 batch_len=12 sample_us=22 update_us=570 adapted_labels=50 buffer_len=50 total_seen=50[0m
+[32mINFO - WISDM_CL_LABEL idx=137 label=0 name=Walking buffer_len=51 total_seen=51 infer_us=175056[0m
+[32mINFO - WISDM_CL_LABEL idx=138 label=0 name=Walking buffer_len=52 total_seen=52 infer_us=174979[0m
+[32mINFO - WISDM_CL_LABEL idx=139 label=0 name=Walking buffer_len=53 total_seen=53 infer_us=174998[0m
+[32mINFO - WISDM_CL_LABEL idx=140 label=0 name=Walking buffer_len=54 total_seen=54 infer_us=175013[0m
+[32mINFO - WISDM_CL_LABEL idx=141 label=0 name=Walking buffer_len=55 total_seen=55 infer_us=175020[0m
+[32mINFO - WISDM_CL_LABEL idx=142 label=0 name=Walking buffer_len=56 total_seen=56 infer_us=174976[0m
+[32mINFO - WISDM_CL_ADAPT_DONE policy=fifo adapted_labels=56 train_steps=5 buffer_len=56 total_seen=56[0m
+[32mINFO - WISDM_CL_EVAL phase=post split=held_out total=152 correct=122 accuracy=0.80263156 mean_infer_us=174814 min_infer_us=174641 max_infer_us=175165[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=0 name=Walking support=65 correct=65 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=1 name=Jogging support=20 correct=20 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=2 name=Upstairs support=40 correct=13 recall=0.325[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=3 name=Downstairs support=14 correct=11 recall=0.78571427[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=4 name=Sitting support=1 correct=1 recall=1[0m
+[32mINFO - WISDM_CL_CLASS phase=post split=held_out class=5 name=Standing support=12 correct=12 recall=1[0m
+[32mINFO - WISDM_CL_SUMMARY tag=wisdm_user19_target_cl target_user=19 policy=fifo budget_per_class=10 lr=0.01 adapted_labels=56 train_steps=5[0m
+
+Script done on 2026-05-13 14:41:47+03:00 [COMMAND_EXIT_CODE="124"]

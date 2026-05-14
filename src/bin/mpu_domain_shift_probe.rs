@@ -15,7 +15,9 @@ use esp_hal::{
 use esp32_cl_har::{
     model::{FEATURE_COUNT, SAMPLE_RATE_HZ},
     mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
-    quant::{INPUT_SCALE, INPUT_ZERO_POINT, WISDM_ZSCORE_STATS, quantize_scalar, raw_accel_to_mps2},
+    quant::{
+        INPUT_SCALE, INPUT_ZERO_POINT, WISDM_ZSCORE_STATS, quantize_scalar, raw_accel_to_mps2,
+    },
 };
 use log::info;
 
@@ -114,9 +116,7 @@ fn busy_wait_until(deadline: Instant) {
     while Instant::now() < deadline {}
 }
 
-fn probe_sensor<'d>(
-    i2c: &mut I2c<'d, esp_hal::Blocking>,
-) -> Result<(Mpu6050, u8), I2cError> {
+fn probe_sensor<'d>(i2c: &mut I2c<'d, esp_hal::Blocking>) -> Result<(Mpu6050, u8), I2cError> {
     for address in [DEFAULT_ADDRESS, ALT_ADDRESS] {
         let sensor = Mpu6050::new(address);
         match sensor.init(i2c) {
@@ -150,7 +150,9 @@ fn main() -> ! {
 
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(100));
     let mut i2c = match I2c::new(peripherals.I2C0, i2c_config) {
-        Ok(i2c) => i2c.with_sda(peripherals.GPIO21).with_scl(peripherals.GPIO22),
+        Ok(i2c) => i2c
+            .with_sda(peripherals.GPIO21)
+            .with_scl(peripherals.GPIO22),
         Err(err) => {
             info!("i2c init error: {}", err);
             loop {}
@@ -174,10 +176,7 @@ fn main() -> ! {
     );
     info!(
         "WISDM z-score means={:?}, stds={:?}, input_scale={}, input_zero_point={}",
-        WISDM_ZSCORE_STATS.means,
-        WISDM_ZSCORE_STATS.stds,
-        INPUT_SCALE,
-        INPUT_ZERO_POINT,
+        WISDM_ZSCORE_STATS.means, WISDM_ZSCORE_STATS.stds, INPUT_SCALE, INPUT_ZERO_POINT,
     );
 
     let mut raw_stats = [AxisStats::new(); FEATURE_COUNT];
@@ -198,8 +197,7 @@ fn main() -> ! {
                 for axis in 0..FEATURE_COUNT {
                     let raw = accel.xyz[axis] as f32;
                     let mps2 = raw_accel_to_mps2(accel.xyz[axis]);
-                    let z = (mps2 - WISDM_ZSCORE_STATS.means[axis])
-                        / WISDM_ZSCORE_STATS.stds[axis];
+                    let z = (mps2 - WISDM_ZSCORE_STATS.means[axis]) / WISDM_ZSCORE_STATS.stds[axis];
                     let q = quantize_scalar(z, INPUT_SCALE, INPUT_ZERO_POINT);
 
                     raw_stats[axis].push(raw);
@@ -215,8 +213,7 @@ fn main() -> ! {
             Err(err) => {
                 info!(
                     "mpu6050 accel read error after {} samples: {}",
-                    sample_count,
-                    err,
+                    sample_count, err,
                 );
             }
         }

@@ -7,6 +7,12 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+use esp_hal::uart::{Config as UartConfig, Uart};
 use esp_hal::{
     clock::CpuClock,
     gpio::{Level, Output, OutputConfig},
@@ -14,42 +20,76 @@ use esp_hal::{
     main,
     time::{Duration, Instant, Rate},
 };
+#[cfg(feature = "microflow_backend")]
+use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
 #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp_hal::uart::{Config as UartConfig, Uart};
-use esp32_cl_har::{
-    model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
-    mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
-    quant::quantize_window,
-    window::SlidingWindow,
-};
+use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowFeatureBackend;
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::model::{CLASS_LABELS, MICROFLOW32_FEATURE_TENSOR_SIZE};
+#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+use esp32_cl_har::online_layer::OnlineLayer32;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+use esp32_cl_har::replay_buffer::{REPLAY_SLOTS_PER_CLASS, ReplayBuffer32, ReplayStrategy};
 #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
 use esp32_cl_har::{
     inference::{FrozenInferenceBackend, InferenceError},
     model::{FEATURE_TENSOR_SIZE, NUM_CLASSES},
     quant::dequantize_feature_tensor,
 };
-#[cfg(feature = "microflow_backend")]
-use esp32_cl_har::inference_microflow::MicroflowFeatureBackend;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp32_cl_har::inference_microflow32::Microflow32FeatureBackend as MicroflowFeatureBackend;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp32_cl_har::model::CLASS_LABELS;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp32_cl_har::online_layer::OnlineLayer32;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-use esp32_cl_har::replay_buffer::{ReplayBuffer32, ReplayStrategy};
+use esp32_cl_har::{
+    model::{INPUT_TENSOR_SIZE, SAMPLE_RATE_HZ, WINDOW_STRIDE},
+    mpu6050::{ALT_ADDRESS, DEFAULT_ADDRESS, Mpu6050},
+    quant::quantize_window,
+    window::SlidingWindow,
+};
 use log::info;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+use log::warn;
 
 const SAMPLE_PERIOD: Duration = Duration::from_millis(50);
 const LOG_EVERY_SAMPLES: u32 = SAMPLE_RATE_HZ;
 #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
 const LATENCY_REPORT_EVERY_ATTEMPTS: u32 = 10;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-const CL_TRAIN_EVERY_LABELS: u32 = 10;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
 const CL_BATCH_SIZE: usize = 12;
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-const ACTIVE_REPLAY_POLICY: ReplayStrategy = ReplayStrategy::Reservoir;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+const CL_LABELS_PER_UPDATE: u32 = 10;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+const CL_LEARNING_RATE: f32 = 0.001;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    feature = "replay_fifo_policy"
+))]
+const ACTIVE_CL_REPLAY_POLICY: ReplayStrategy = ReplayStrategy::Fifo;
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    not(feature = "replay_fifo_policy")
+))]
+const ACTIVE_CL_REPLAY_POLICY: ReplayStrategy = ReplayStrategy::Reservoir;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -88,7 +128,53 @@ fn argmax(values: &[f32]) -> usize {
     best_idx
 }
 
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    not(feature = "cl_uart_labels")
+))]
+fn experiment_mode_name() -> &'static str {
+    "no_adapt"
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    feature = "replay_fifo_policy"
+))]
+fn experiment_mode_name() -> &'static str {
+    "fifo"
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels",
+    not(feature = "replay_fifo_policy")
+))]
+fn experiment_mode_name() -> &'static str {
+    "reservoir"
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
+fn parse_uart_label(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'5' => Some(byte - b'0'),
+        b'\r' | b'\n' | b' ' | b'\t' => None,
+        _ => None,
+    }
+}
+
+#[cfg(all(
+    feature = "microflow32_backend",
+    not(feature = "microflow_backend"),
+    feature = "cl_uart_labels"
+))]
 fn replay_policy_name(policy: ReplayStrategy) -> &'static str {
     match policy {
         ReplayStrategy::Fifo => "fifo",
@@ -96,29 +182,7 @@ fn replay_policy_name(policy: ReplayStrategy) -> &'static str {
     }
 }
 
-#[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-fn read_uart_label(rx: &mut Uart<'_, esp_hal::Blocking>) -> Option<u8> {
-    let mut byte = [0_u8; 1];
-    loop {
-        match rx.read(&mut byte) {
-            Ok(1) => {
-                let value = byte[0];
-                if (b'0'..=b'5').contains(&value) {
-                    return Some(value - b'0');
-                }
-            }
-            Ok(_) => return None,
-            Err(err) => {
-                info!("LABEL_READ error={}", err);
-                return None;
-            }
-        }
-    }
-}
-
-fn probe_sensor<'d>(
-    i2c: &mut I2c<'d, esp_hal::Blocking>,
-) -> Result<(Mpu6050, u8), I2cError> {
+fn probe_sensor<'d>(i2c: &mut I2c<'d, esp_hal::Blocking>) -> Result<(Mpu6050, u8), I2cError> {
     for address in [DEFAULT_ADDRESS, ALT_ADDRESS] {
         let sensor = Mpu6050::new(address);
         match sensor.init(i2c) {
@@ -145,22 +209,24 @@ fn main() -> ! {
     );
 
     let mut led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let mut label_rx = match Uart::new(peripherals.UART0, UartConfig::default()) {
-        Ok(uart) => uart.with_rx(peripherals.GPIO3),
-        Err(err) => {
-            info!("uart label rx init error: {}", err);
-            loop {}
-        }
-    };
     let i2c_config = I2cConfig::default().with_frequency(Rate::from_khz(100));
     let mut i2c = match I2c::new(peripherals.I2C0, i2c_config) {
-        Ok(i2c) => i2c.with_sda(peripherals.GPIO21).with_scl(peripherals.GPIO22),
+        Ok(i2c) => i2c
+            .with_sda(peripherals.GPIO21)
+            .with_scl(peripherals.GPIO22),
         Err(err) => {
             info!("i2c init error: {}", err);
             loop {}
         }
     };
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut label_uart = Uart::new(peripherals.UART0, UartConfig::default())
+        .expect("UART0 init failed")
+        .with_rx(peripherals.GPIO3);
 
     let (sensor, who_am_i) = match probe_sensor(&mut i2c) {
         Ok((sensor, who_am_i)) => (sensor, who_am_i),
@@ -186,15 +252,53 @@ fn main() -> ! {
         phase3_classifier_artifact_name(),
         phase3_feature_artifact_name(),
     );
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        not(feature = "cl_uart_labels")
+    ))]
     {
         info!(
-            "RESOURCE policy={} replay_ram_est=12288 online_head_ram_est=792 persistence=0 train_every_labels={} batch_size={}",
-            replay_policy_name(ACTIVE_REPLAY_POLICY),
-            CL_TRAIN_EVERY_LABELS,
+            "EXPERIMENT mode={} labels=off policy=none feature_dim={} persistence=off",
+            experiment_mode_name(),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+        );
+        info!(
+            "RESOURCE mode={} replay_ram_est=0 feature_dim={} slots_per_class=0 batch_size=0 persistence=off",
+            experiment_mode_name(),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+        );
+    }
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    {
+        let replay_ram_est =
+            CLASS_LABELS.len() * REPLAY_SLOTS_PER_CLASS * MICROFLOW32_FEATURE_TENSOR_SIZE * 4;
+        info!(
+            "phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy={}, labels_per_update={}, batch_size={}, lr={}, persistence=off",
+            replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
+            CL_LABELS_PER_UPDATE,
+            CL_BATCH_SIZE,
+            CL_LEARNING_RATE,
+        );
+        info!(
+            "EXPERIMENT mode={} labels=uart policy={} feature_dim={} labels_per_update={} persistence=off",
+            experiment_mode_name(),
+            replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+            CL_LABELS_PER_UPDATE,
+        );
+        info!(
+            "RESOURCE mode={} replay_ram_est={} feature_dim={} slots_per_class={} batch_size={} persistence=off",
+            experiment_mode_name(),
+            replay_ram_est,
+            MICROFLOW32_FEATURE_TENSOR_SIZE,
+            REPLAY_SLOTS_PER_CLASS,
             CL_BATCH_SIZE,
         );
-        info!("LABEL_PROTOCOL send one ASCII digit 0..5 followed by newline; 0=Walking 1=Jogging 2=Upstairs 3=Downstairs 4=Sitting 5=Standing");
     }
 
     let mut next_sample_at = Instant::now() + SAMPLE_PERIOD;
@@ -205,17 +309,66 @@ fn main() -> ! {
     let inference = FrozenInferenceBackend::new();
     #[cfg(any(feature = "microflow_backend", feature = "microflow32_backend"))]
     let inference = MicroflowFeatureBackend::new();
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
     let mut online_layer = OnlineLayer32::new_microflow32_pretrained();
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let mut replay = ReplayBuffer32::new();
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let mut cl_batch_features =
-        [[0.0_f32; esp32_cl_har::model::MICROFLOW32_FEATURE_TENSOR_SIZE]; CL_BATCH_SIZE];
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let mut cl_batch_labels = [0_u8; CL_BATCH_SIZE];
-    #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
-    let mut labels_since_train = 0_u32;
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        not(feature = "cl_uart_labels")
+    ))]
+    let online_layer = OnlineLayer32::new_microflow32_pretrained();
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut replay = ReplayBuffer32::with_seed(0x1234_5678);
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut replay_batch_features = [[0.0; MICROFLOW32_FEATURE_TENSOR_SIZE]; CL_BATCH_SIZE];
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut replay_batch_labels = [0_u8; CL_BATCH_SIZE];
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut label_uart_buf = [0_u8; 8];
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut labels_seen: u32 = 0;
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut labels_since_update: u32 = 0;
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut train_steps: u32 = 0;
+    #[cfg(all(
+        feature = "microflow32_backend",
+        not(feature = "microflow_backend"),
+        feature = "cl_uart_labels"
+    ))]
+    let mut invalid_labels: u32 = 0;
     let mut quantized_input = [0_i8; INPUT_TENSOR_SIZE];
     #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
     let mut classifier_output = [0_i8; NUM_CLASSES];
@@ -280,7 +433,10 @@ fn main() -> ! {
                                 features[3],
                             );
 
-                            #[cfg(all(feature = "microflow32_backend", not(feature = "microflow_backend")))]
+                            #[cfg(all(
+                                feature = "microflow32_backend",
+                                not(feature = "microflow_backend")
+                            ))]
                             {
                                 let online_started = Instant::now();
                                 let probs = online_layer.forward(&features);
@@ -288,7 +444,16 @@ fn main() -> ! {
                                 let predicted_idx = argmax(&probs);
 
                                 info!(
-                                    "PRED attempt={} class={} label={} conf={} infer_us={} head_us={}",
+                                    "online32 forward ok: attempt={}, online_us={}, pred={}({}), confidence={}",
+                                    inference_attempts,
+                                    online_us,
+                                    predicted_idx,
+                                    CLASS_LABELS[predicted_idx],
+                                    probs[predicted_idx],
+                                );
+                                info!(
+                                    "PRED mode={} attempt={} class={} label={} conf={} infer_us={} head_us={}",
+                                    experiment_mode_name(),
                                     inference_attempts,
                                     predicted_idx,
                                     CLASS_LABELS[predicted_idx],
@@ -297,72 +462,108 @@ fn main() -> ! {
                                     online_us,
                                 );
 
-                                if let Some(label) = read_uart_label(&mut label_rx) {
-                                    let fill_started = Instant::now();
-                                    let added =
-                                        replay.push(label, features, ACTIVE_REPLAY_POLICY).is_some();
-                                    let fill_us = fill_started.elapsed().as_micros();
-                                    let buffer_len = replay.total_len();
+                                #[cfg(feature = "cl_uart_labels")]
+                                match label_uart.read_buffered(&mut label_uart_buf) {
+                                    Ok(0) => {}
+                                    Ok(count) => {
+                                        for &byte in &label_uart_buf[..count] {
+                                            let Some(label) = parse_uart_label(byte) else {
+                                                if !matches!(byte, b'\r' | b'\n' | b' ' | b'\t') {
+                                                    invalid_labels =
+                                                        invalid_labels.saturating_add(1);
+                                                    warn!(
+                                                        "LABEL_INVALID byte={} total_invalid={}",
+                                                        byte, invalid_labels
+                                                    );
+                                                }
+                                                continue;
+                                            };
 
-                                    if added {
-                                        labels_since_train += 1;
-                                    }
-
-                                    info!(
-                                        "LABEL label={} name={} added={} buffer_len={} total_seen={} fill_us={}",
-                                        label,
-                                        CLASS_LABELS[usize::from(label)],
-                                        if added { 1 } else { 0 },
-                                        buffer_len,
-                                        replay.total_seen(),
-                                        fill_us,
-                                    );
-
-                                    if added && labels_since_train >= CL_TRAIN_EVERY_LABELS {
-                                        let sample_started = Instant::now();
-                                        let batch_len = replay.sample_balanced_batch(
-                                            &mut cl_batch_features,
-                                            &mut cl_batch_labels,
-                                        );
-                                        let sample_us = sample_started.elapsed().as_micros();
-
-                                        if batch_len > 0 {
-                                            let update_started = Instant::now();
-                                            online_layer.backward_batch(
-                                                &cl_batch_features[..batch_len],
-                                                &cl_batch_labels[..batch_len],
-                                                0.001,
+                                            labels_seen = labels_seen.saturating_add(1);
+                                            labels_since_update =
+                                                labels_since_update.saturating_add(1);
+                                            let push_started = Instant::now();
+                                            let insert = replay.push(
+                                                label,
+                                                features,
+                                                ACTIVE_CL_REPLAY_POLICY,
                                             );
-                                            let update_us = update_started.elapsed().as_micros();
-                                            labels_since_train = 0;
+                                            let push_us = push_started.elapsed().as_micros();
+                                            let added = insert.is_some();
+                                            let class_len = replay.class_len(label).unwrap_or(0);
 
                                             info!(
-                                                "TRAIN policy={} batch_len={} sample_us={} update_us={} total_seen={} buffer_len={}",
-                                                replay_policy_name(ACTIVE_REPLAY_POLICY),
-                                                batch_len,
-                                                sample_us,
-                                                update_us,
-                                                replay.total_seen(),
+                                                "LABEL mode={} label={} name={} added={} class_len={} buffer_len={} push_us={} total_seen={} attempt={}",
+                                                experiment_mode_name(),
+                                                label,
+                                                CLASS_LABELS[usize::from(label)],
+                                                added as u8,
+                                                class_len,
                                                 replay.total_len(),
+                                                push_us,
+                                                replay.total_seen(),
+                                                inference_attempts,
                                             );
+
+                                            if labels_since_update >= CL_LABELS_PER_UPDATE {
+                                                let sample_started = Instant::now();
+                                                let batch_len = replay.sample_balanced_batch(
+                                                    &mut replay_batch_features,
+                                                    &mut replay_batch_labels,
+                                                );
+                                                let sample_us =
+                                                    sample_started.elapsed().as_micros();
+
+                                                let update_started = Instant::now();
+                                                online_layer.backward_batch(
+                                                    &replay_batch_features[..batch_len],
+                                                    &replay_batch_labels[..batch_len],
+                                                    CL_LEARNING_RATE,
+                                                );
+                                                let update_us =
+                                                    update_started.elapsed().as_micros();
+
+                                                train_steps = train_steps.saturating_add(1);
+                                                labels_since_update = 0;
+                                                info!(
+                                                    "TRAIN mode={} policy={} step={} batch_len={} sample_us={} update_us={} total_seen={} buffer_len={} attempt={}",
+                                                    experiment_mode_name(),
+                                                    replay_policy_name(ACTIVE_CL_REPLAY_POLICY),
+                                                    train_steps,
+                                                    batch_len,
+                                                    sample_us,
+                                                    update_us,
+                                                    replay.total_seen(),
+                                                    replay.total_len(),
+                                                    inference_attempts,
+                                                );
+                                            }
                                         }
+                                    }
+                                    Err(_) => {
+                                        invalid_labels = invalid_labels.saturating_add(1);
+                                        warn!("LABEL_RX_ERROR total_invalid={}", invalid_labels);
                                     }
                                 }
                             }
 
                             if inference_attempts % LATENCY_REPORT_EVERY_ATTEMPTS == 0 {
-                                let latency_mean_us = latency_sum_us / u64::from(inference_attempts);
+                                let latency_mean_us =
+                                    latency_sum_us / u64::from(inference_attempts);
                                 info!(
                                     "microflow latency stats: attempts={}, min_us={}, mean_us={}, max_us={}",
                                     inference_attempts,
                                     latency_min_us,
                                     latency_mean_us,
-                                latency_max_us,
+                                    latency_max_us,
                                 );
                             }
                         }
 
-                        #[cfg(not(any(feature = "microflow_backend", feature = "microflow32_backend")))]
+                        #[cfg(not(any(
+                            feature = "microflow_backend",
+                            feature = "microflow32_backend"
+                        )))]
                         {
                             let class_result =
                                 inference.classify(&quantized_input, &mut classifier_output);
@@ -386,8 +587,7 @@ fn main() -> ! {
                                 | (_, Err(InferenceError::BackendUnavailable)) => {
                                     info!(
                                         "frozen inference backend stub hit: attempt={}, input_q0={}",
-                                        inference_attempts,
-                                        quantized_input[0],
+                                        inference_attempts, quantized_input[0],
                                     );
                                 }
                             }
@@ -420,8 +620,7 @@ fn main() -> ! {
             Err(err) => {
                 info!(
                     "mpu6050 accel read error after {} samples: {}",
-                    sample_count,
-                    err
+                    sample_count, err
                 );
             }
         }

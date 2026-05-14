@@ -1,0 +1,68 @@
+{
+  "activity_order": [
+    "Walking",
+    "Jogging",
+    "Upstairs",
+    "Downstairs",
+    "Sitting",
+    "Standing"
+  ],
+  "artifact_role": "fold_specific_classifier",
+  "creation_timestamp": "2026-05-13T11:15:29.489107+00:00",
+  "feature_columns": [
+    "x",
+    "y",
+    "z"
+  ],
+  "held_out_protocol": "train users != target user",
+  "input_dtype": "<class 'numpy.int8'>",
+  "input_scale": 0.03156909719109535,
+  "input_shape": [
+    1,
+    80,
+    3,
+    1
+  ],
+  "input_zero_point": 0,
+  "microflow_feature_dim": 32,
+  "model_name": "microflow32_user8_classifier_int8",
+  "output_dtype": "<class 'numpy.int8'>",
+  "output_scale": 0.00390625,
+  "output_shape": [
+    1,
+    1,
+    1,
+    6
+  ],
+  "output_zero_point": -128,
+  "representative_samples": 192,
+  "step_size": 40,
+  "target_distribution": {
+    "Downstairs": 33,
+    "Jogging": 84,
+    "Sitting": 7,
+    "Standing": 22,
+    "Upstairs": 42,
+    "Walking": 171
+  },
+  "target_user": 8,
+  "train_distribution": {
+    "Downstairs": 926,
+    "Jogging": 2049,
+    "Sitting": 173,
+    "Standing": 347,
+    "Upstairs": 1169,
+    "Walking": 4131
+  },
+  "window_size": 80,
+  "zscore_means": {
+    "x": 0.6580490927637233,
+    "y": 7.315393799261687,
+    "z": 0.3941484630887391
+  },
+  "zscore_stds": {
+    "x": 6.86109375648684,
+    "y": 6.723549508229033,
+    "z": 4.740302317663696
+  }
+}

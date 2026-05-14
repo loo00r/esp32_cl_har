@@ -42,10 +42,7 @@ impl Mpu6050 {
         Ok(who_am_i)
     }
 
-    pub fn read_who_am_i<'d, Dm: DriverMode>(
-        &self,
-        i2c: &mut I2c<'d, Dm>,
-    ) -> Result<u8, I2cError> {
+    pub fn read_who_am_i<'d, Dm: DriverMode>(&self, i2c: &mut I2c<'d, Dm>) -> Result<u8, I2cError> {
         self.read_register(i2c, REG_WHO_AM_I)
     }
 

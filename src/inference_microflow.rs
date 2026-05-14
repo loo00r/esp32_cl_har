@@ -24,13 +24,17 @@ impl MicroflowFeatureBackend {
     }
 
     pub fn make_input(input: &[f32; WINDOW_SIZE * FEATURE_COUNT]) -> MicroflowInput {
-        [Buffer2D::from_fn(|row, col| [input[row * FEATURE_COUNT + col]])]
+        [Buffer2D::from_fn(|row, col| {
+            [input[row * FEATURE_COUNT + col]]
+        })]
     }
 
     pub fn make_quantized_input(
         input: &[i8; WINDOW_SIZE * FEATURE_COUNT],
     ) -> MicroflowQuantizedInput {
-        [Buffer2D::from_fn(|row, col| [input[row * FEATURE_COUNT + col]])]
+        [Buffer2D::from_fn(|row, col| {
+            [input[row * FEATURE_COUNT + col]]
+        })]
     }
 
     pub fn extract_features(

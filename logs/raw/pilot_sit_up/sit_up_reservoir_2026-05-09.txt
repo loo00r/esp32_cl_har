@@ -1,0 +1,339 @@
+Script started on 2026-05-09 22:58:27+03:00 [COMMAND="timeout 120s bash -lc '. /home/g00n3r/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" TERM="xterm-ghostty" TTY="/dev/pts/2" COLUMNS="80" LINES="24"]
+   Compiling esp32_cl_har v0.1.0 (/home/g00n3r/projects/esp32_cl_har)
+    Building [=======================> ] 208/211: esp32_cl_har(build)             Building [=======================> ] 209/211: esp32_cl_har                    Building [=======================> ] 210/211: esp32_cl_har(bin)               Finished `dev` profile [optimized + debuginfo] target(s) in 0.35s
+     Running `espflash flash --monitor --chip esp32 target/xtensa-esp32-none-elf/debug/esp32_cl_har`
+[2026-05-09T19:58:28Z INFO ] 🚀 A new version of espflash is available: v4.4.0
+[2026-05-09T19:58:28Z INFO ] Serial port: '/dev/ttyUSB0'
+[2026-05-09T19:58:28Z INFO ] Connecting...
+[2026-05-09T19:58:34Z INFO ] Using flash stub
+Chip type:         esp32 (revision v3.1)
+Crystal frequency: 40 MHz
+Flash size:        4MB
+Features:          WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+MAC address:       84:1f:e8:32:01:44
+App/part. size:    136,384/4,128,768 bytes, 3.30%
+[00:00:00] [========================================]      17/17      0x1000   [mSkipped! (checksum matches)[m                                                      [00:00:00] [========================================]       1/1       0x8000   [mSkipped! (checksum matches)[m                                                      [00:00:00] [>                                       ]       1/68      0x10000   [2K[00:00:00] [=>                                      ]       2/68      0x10000   [2K[00:00:00] [=>                                      ]       3/68      0x10000   [2K[00:00:00] [==>                                     ]       4/68      0x10000   [2K[00:00:00] [==>                                     ]       5/68      0x10000   [2K[00:00:00] [===>                                    ]       6/68      0x10000   [2K[00:00:00] [====>                                   ]       7/68      0x10000   [2K[00:00:00] [====>                                   ]       8/68      0x10000   [2K[00:00:01] [=====>                                  ]       9/68      0x10000   [2K[00:00:01] [=====>                                  ]      10/68      0x10000   [2K[00:00:01] [======>                                 ]      11/68      0x10000   [2K[00:00:01] [=======>                                ]      12/68      0x10000   [2K[00:00:01] [=======>                                ]      13/68      0x10000   [2K[00:00:01] [========>                               ]      14/68      0x10000   [2K[00:00:01] [========>                               ]      15/68      0x10000   [2K[00:00:01] [=========>                              ]      16/68      0x10000   [2K[00:00:01] [==========>                             ]      17/68      0x10000   [2K[00:00:01] [==========>                             ]      18/68      0x10000   [2K[00:00:02] [===========>                            ]      19/68      0x10000   [2K[00:00:02] [===========>                            ]      20/68      0x10000   [2K[00:00:02] [============>                           ]      21/68      0x10000   [2K[00:00:02] [============>                           ]      22/68      0x10000   [2K[00:00:02] [=============>                          ]      23/68      0x10000   [2K[00:00:02] [==============>                         ]      24/68      0x10000   [2K[00:00:02] [==============>                         ]      25/68      0x10000   [2K[00:00:02] [===============>                        ]      26/68      0x10000   [2K[00:00:02] [===============>                        ]      27/68      0x10000   [2K[00:00:02] [================>                       ]      28/68      0x10000   [2K[00:00:03] [=================>                      ]      29/68      0x10000   [2K[00:00:03] [=================>                      ]      30/68      0x10000   [2K[00:00:03] [==================>                     ]      31/68      0x10000   [2K[00:00:03] [==================>                     ]      32/68      0x10000   [2K[00:00:03] [===================>                    ]      33/68      0x10000   [2K[00:00:03] [====================>                   ]      34/68      0x10000   [2K[00:00:03] [====================>                   ]      35/68      0x10000   [2K[00:00:03] [=====================>                  ]      36/68      0x10000   [2K[00:00:03] [=====================>                  ]      37/68      0x10000   [2K[00:00:03] [======================>                 ]      38/68      0x10000   [2K[00:00:04] [======================>                 ]      39/68      0x10000   [2K[00:00:04] [=======================>                ]      40/68      0x10000   [2K[00:00:04] [========================>               ]      41/68      0x10000   [2K[00:00:04] [========================>               ]      42/68      0x10000   [2K[00:00:04] [=========================>              ]      43/68      0x10000   [2K[00:00:04] [=========================>              ]      44/68      0x10000   [2K[00:00:04] [==========================>             ]      45/68      0x10000   [2K[00:00:04] [===========================>            ]      46/68      0x10000   [2K[00:00:04] [===========================>            ]      47/68      0x10000   [2K[00:00:04] [============================>           ]      48/68      0x10000   [2K[00:00:05] [============================>           ]      49/68      0x10000   [2K[00:00:05] [=============================>          ]      50/68      0x10000   [2K[00:00:05] [==============================>         ]      51/68      0x10000   [2K[00:00:05] [==============================>         ]      52/68      0x10000   [2K[00:00:05] [===============================>        ]      53/68      0x10000   [2K[00:00:05] [===============================>        ]      54/68      0x10000   [2K[00:00:05] [================================>       ]      55/68      0x10000   [2K[00:00:05] [================================>       ]      56/68      0x10000   [2K[00:00:05] [=================================>      ]      57/68      0x10000   [2K[00:00:05] [==================================>     ]      58/68      0x10000   [2K[00:00:06] [==================================>     ]      59/68      0x10000   [2K[00:00:06] [===================================>    ]      60/68      0x10000   [2K[00:00:06] [===================================>    ]      61/68      0x10000   [2K[00:00:06] [====================================>   ]      62/68      0x10000   [2K[00:00:06] [=====================================>  ]      63/68      0x10000   [2K[00:00:06] [=====================================>  ]      64/68      0x10000   [2K[00:00:06] [======================================> ]      65/68      0x10000   [2K[00:00:06] [======================================> ]      66/68      0x10000   [2K[00:00:06] [=======================================>]      67/68      0x10000   [2K[00:00:06] [========================================]      68/68      0x10000   [2K[00:00:06] [========================================]      68/68      0x10000  Verifying...                                                                     [1A[2K[1B[2K[1A[00:00:07] [========================================]      68/68      0x10000  Verifying... [mOK![m                                                                 [2026-05-09T19:58:42Z INFO ] Flashing has completed!
+Commands:
+    CTRL+R    Reset chip
+    CTRL+C    Exit
+
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6384
+load:0x40078000,len:15916
+load:0x40080400,len:3920
+entry 0x40080644
+I (27) boot: ESP-IDF v5.5.1-838-gd66ebb86d2e 2nd stage bootloader
+I (27) boot: compile time Nov 26 2025 10:51:37
+I (28) boot: Multicore bootloader
+I (30) boot: chip revision: v3.1
+I (33) boot.esp32: SPI Speed      : 40MHz
+I (37) boot.esp32: SPI Mode       : DIO
+I (40) boot.esp32: SPI Flash Size : 4MB
+I (44) boot: Enabling RNG early entropy source...
+I (48) boot: Partition Table:
+I (51) boot: ## Label            Usage          Type ST Offset   Length
+I (57) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (70) boot:  2 factory          factory app      00 00 00010000 003f0000
+I (77) boot: End of partition table
+I (80) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=0c200h ( 49664) map
+I (105) esp_image: segment 1: paddr=0001c228 vaddr=3ffb0000 size=01934h (  6452) load
+I (107) esp_image: segment 2: paddr=0001db64 vaddr=40080000 size=010b8h (  4280) load
+I (110) esp_image: segment 3: paddr=0001ec24 vaddr=00000000 size=013f4h (  5108) 
+I (118) esp_image: segment 4: paddr=00020020 vaddr=400d0020 size=11474h ( 70772) map
+I (148) boot: Loaded app from partition at offset 0x10000
+I (149) boot: Disabling RNG early entropy source...
+[32mINFO - ES[32mINFO - mpu6050 detected at 0x68, WHO_AM_I=0x70[0m
+[32mINFO - phase 3 streaming path ready: backend=microflow-fullconv32-feature-extractor, classifier_artifact=microflow_fullconv32_classifier_int8.tflite, feature_artifact=microflow_fullconv32_feature_extractor_int8.tflite[0m
+[32mINFO - phase 4 RAM-only CL enabled: labels=UART0/GPIO3, policy=reservoir, labels_per_update=10, batch_size=12, lr=0.001, persistence=off[0m
+[32mINFO - EXPERIMENT mode=reservoir labels=uart policy=reservoir feature_dim=32 labels_per_update=10 persistence=off[0m
+[32mINFO - RESOURCE mode=reservoir replay_ram_est=12288 feature_dim=32 slots_per_class=16 batch_size=12 persistence=off[0m
+[32mINFO - samples=20, t_ms=1050, loop_us=880, window_len=20, accel=(628, -144, 16392)[0m
+[32mINFO - samples=40, t_ms=2050, loop_us=873, window_len=40, accel=(620, -56, 16144)[0m
+[32mINFO - samples=60, t_ms=3050, loop_us=873, window_len=60, accel=(492, -240, 16116)[0m
+[32mINFO - window buffer ready: 80 samples collected, stride=40[0m
+[32mINFO - samples=80, t_ms=4050, loop_us=987, window_len=80, accel=(568, 96, 16156)[0m
+[32mINFO - samples=100, t_ms=5050, loop_us=873, window_len=80, accel=(400, 4, 16068)[0m
+[32mINFO - microflow feature ok: attempt=1, inference_us=173130, input_q0=8, feat0=0, feat1=0, feat2=5.419828, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=1, online_us=181, pred=4(Sitting), confidence=0.9948762[0m
+[32mINFO - PRED mode=reservoir attempt=1 class=4 label=Sitting conf=0.9948762 infer_us=173130 head_us=181[0m
+[32mINFO - samples=120, t_ms=6194, loop_us=1290, window_len=80, accel=(480, 28, 16212)[0m
+[32mINFO - samples=140, t_ms=7050, loop_us=873, window_len=80, accel=(472, 44, 16056)[0m
+[32mINFO - microflow feature ok: attempt=2, inference_us=172289, input_q0=7, feat0=0, feat1=0, feat2=5.493069, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=2, online_us=76, pred=4(Sitting), confidence=0.99524915[0m
+[32mINFO - PRED mode=reservoir attempt=2 class=4 label=Sitting conf=0.99524915 infer_us=172289 head_us=76[0m
+[32mINFO - samples=160, t_ms=8193, loop_us=1203, window_len=80, accel=(728, 40, 16164)[0m
+[32mINFO - samples=180, t_ms=9050, loop_us=873, window_len=80, accel=(492, -40, 15964)[0m
+[32mINFO - microflow feature ok: attempt=3, inference_us=172373, input_q0=7, feat0=0, feat1=0, feat2=5.493069, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=3, online_us=85, pred=4(Sitting), confidence=0.99524915[0m
+[32mINFO - PRED mode=reservoir attempt=3 class=4 label=Sitting conf=0.99524915 infer_us=172373 head_us=85[0m
+[32mINFO - samples=200, t_ms=10193, loop_us=1286, window_len=80, accel=(452, 560, 15956)[0m
+[32mINFO - samples=220, t_ms=11050, loop_us=873, window_len=80, accel=(-100, 404, 16608)[0m
+[32mINFO - microflow feature ok: attempt=4, inference_us=172286, input_q0=8, feat0=0, feat1=0, feat2=5.419828, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=4, online_us=77, pred=4(Sitting), confidence=0.99497604[0m
+[32mINFO - PRED mode=reservoir attempt=4 class=4 label=Sitting conf=0.99497604 infer_us=172286 head_us=77[0m
+[32mINFO - samples=240, t_ms=12193, loop_us=1203, window_len=80, accel=(12, 256, 15916)[0m
+[32mINFO - samples=260, t_ms=13050, loop_us=873, window_len=80, accel=(148, -260, 15944)[0m
+[32mINFO - microflow feature ok: attempt=5, inference_us=172377, input_q0=7, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=5, online_us=85, pred=4(Sitting), confidence=0.9953772[0m
+[32mINFO - PRED mode=reservoir attempt=5 class=4 label=Sitting conf=0.9953772 infer_us=172377 head_us=85[0m
+[32mINFO - samples=280, t_ms=14192, loop_us=1286, window_len=80, accel=(320, 148, 16104)[0m
+[32mINFO - samples=300, t_ms=15050, loop_us=873, window_len=80, accel=(200, 244, 15912)[0m
+[32mINFO - microflow feature ok: attempt=6, inference_us=172289, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=6, online_us=77, pred=4(Sitting), confidence=0.99548066[0m
+[32mINFO - PRED mode=reservoir attempt=6 class=4 label=Sitting conf=0.99548066 infer_us=172289 head_us=77[0m
+[32mINFO - samples=320, t_ms=16193, loop_us=1203, window_len=80, accel=(28, 224, 16112)[0m
+[32mINFO - samples=340, t_ms=17050, loop_us=873, window_len=80, accel=(56, 416, 16000)[0m
+[32mINFO - microflow feature ok: attempt=7, inference_us=172381, input_q0=7, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=7, online_us=93, pred=4(Sitting), confidence=0.9955254[0m
+[32mINFO - PRED mode=reservoir attempt=7 class=4 label=Sitting conf=0.9955254 infer_us=172381 head_us=93[0m
+[32mINFO - samples=360, t_ms=18192, loop_us=1286, window_len=80, accel=(220, 292, 16164)[0m
+[32mINFO - samples=380, t_ms=19050, loop_us=873, window_len=80, accel=(76, 448, 16088)[0m
+[32mINFO - microflow feature ok: attempt=8, inference_us=172286, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=8, online_us=77, pred=4(Sitting), confidence=0.99564797[0m
+[32mINFO - PRED mode=reservoir attempt=8 class=4 label=Sitting conf=0.99564797 infer_us=172286 head_us=77[0m
+[32mINFO - samples=400, t_ms=20193, loop_us=1202, window_len=80, accel=(44, 544, 16044)[0m
+[32mINFO - samples=420, t_ms=21050, loop_us=873, window_len=80, accel=(88, 548, 16260)[0m
+[32mINFO - microflow feature ok: attempt=9, inference_us=172381, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=9, online_us=93, pred=4(Sitting), confidence=0.9954124[0m
+[32mINFO - PRED mode=reservoir attempt=9 class=4 label=Sitting conf=0.9954124 infer_us=172381 head_us=93[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=1 buffer_len=1 push_us=62 total_seen=1 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=2 buffer_len=2 push_us=6 total_seen=2 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=3 buffer_len=3 push_us=6 total_seen=3 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=4 buffer_len=4 push_us=7 total_seen=4 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=5 buffer_len=5 push_us=6 total_seen=5 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=6 buffer_len=6 push_us=6 total_seen=6 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=7 buffer_len=7 push_us=6 total_seen=7 attempt=9[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=8 buffer_len=8 push_us=5 total_seen=8 attempt=9[0m
+[32mINFO - samples=440, t_ms=22279, loop_us=1310, window_len=80, accel=(192, 484, 16072)[0m
+[32mINFO - samples=460, t_ms=23050, loop_us=873, window_len=80, accel=(204, 432, 16260)[0m
+[32mINFO - microflow feature ok: attempt=10, inference_us=172353, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=10, online_us=81, pred=4(Sitting), confidence=0.9955254[0m
+[32mINFO - PRED mode=reservoir attempt=10 class=4 label=Sitting conf=0.9955254 infer_us=172353 head_us=81[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=9 buffer_len=9 push_us=50 total_seen=9 attempt=10[0m
+[32mINFO - LABEL mode=reservoir label=4 name=Sitting added=1 class_len=10 buffer_len=10 push_us=6 total_seen=10 attempt=10[0m
+[32mINFO - TRAIN mode=reservoir policy=reservoir step=1 batch_len=12 sample_us=59 update_us=681 total_seen=10 buffer_len=10 attempt=10[0m
+[32mINFO - microflow latency stats: attempts=10, min_us=172286, mean_us=172414, max_us=173130[0m
+[32mINFO - samples=480, t_ms=24235, loop_us=1262, window_len=80, accel=(8, 508, 16364)[0m
+[32mINFO - samples=500, t_ms=25050, loop_us=873, window_len=80, accel=(84, 500, 16332)[0m
+[32mINFO - microflow feature ok: attempt=11, inference_us=172484, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=11, online_us=85, pred=4(Sitting), confidence=0.9955075[0m
+[32mINFO - PRED mode=reservoir attempt=11 class=4 label=Sitting conf=0.9955075 infer_us=172484 head_us=85[0m
+[32mINFO - samples=520, t_ms=26193, loop_us=1290, window_len=80, accel=(28, 404, 16068)[0m
+[32mINFO - samples=540, t_ms=27050, loop_us=873, window_len=80, accel=(-116, 420, 16060)[0m
+[32mINFO - microflow feature ok: attempt=12, inference_us=172318, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=12, online_us=77, pred=4(Sitting), confidence=0.99545467[0m
+[32mINFO - PRED mode=reservoir attempt=12 class=4 label=Sitting conf=0.99545467 infer_us=172318 head_us=77[0m
+[32mINFO - samples=560, t_ms=28193, loop_us=1210, window_len=80, accel=(152, 220, 15912)[0m
+[32mINFO - samples=580, t_ms=29050, loop_us=873, window_len=80, accel=(128, 340, 16432)[0m
+[32mINFO - microflow feature ok: attempt=13, inference_us=172396, input_q0=6, feat0=0, feat1=0, feat2=5.419828, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=13, online_us=92, pred=4(Sitting), confidence=0.9951814[0m
+[32mINFO - PRED mode=reservoir attempt=13 class=4 label=Sitting conf=0.9951814 infer_us=172396 head_us=92[0m
+[32mINFO - samples=600, t_ms=30193, loop_us=1290, window_len=80, accel=(364, -296, 16236)[0m
+[32mINFO - samples=620, t_ms=31050, loop_us=873, window_len=80, accel=(240, -96, 16500)[0m
+[32mINFO - microflow feature ok: attempt=14, inference_us=172317, input_q0=6, feat0=0, feat1=0, feat2=5.419828, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=14, online_us=76, pred=4(Sitting), confidence=0.9951597[0m
+[32mINFO - PRED mode=reservoir attempt=14 class=4 label=Sitting conf=0.9951597 infer_us=172317 head_us=76[0m
+[32mINFO - samples=640, t_ms=32193, loop_us=1211, window_len=80, accel=(-112, 408, 15944)[0m
+[32mINFO - samples=660, t_ms=33050, loop_us=873, window_len=80, accel=(40, 424, 15764)[0m
+[32mINFO - microflow feature ok: attempt=15, inference_us=172393, input_q0=7, feat0=0, feat1=0, feat2=5.419828, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=15, online_us=84, pred=4(Sitting), confidence=0.99507[0m
+[32mINFO - PRED mode=reservoir attempt=15 class=4 label=Sitting conf=0.99507 infer_us=172393 head_us=84[0m
+[32mINFO - samples=680, t_ms=34192, loop_us=1289, window_len=80, accel=(8, 632, 16028)[0m
+[32mINFO - samples=700, t_ms=35050, loop_us=873, window_len=80, accel=(-196, 808, 16032)[0m
+[32mINFO - microflow feature ok: attempt=16, inference_us=172318, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=16, online_us=77, pred=4(Sitting), confidence=0.99522156[0m
+[32mINFO - PRED mode=reservoir attempt=16 class=4 label=Sitting conf=0.99522156 infer_us=172318 head_us=77[0m
+[32mINFO - samples=720, t_ms=36193, loop_us=1210, window_len=80, accel=(-16, 916, 16124)[0m
+[32mINFO - samples=740, t_ms=37050, loop_us=873, window_len=80, accel=(-88, 948, 15800)[0m
+[32mINFO - microflow feature ok: attempt=17, inference_us=172397, input_q0=6, feat0=0, feat1=0, feat2=5.493069, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=17, online_us=93, pred=4(Sitting), confidence=0.99500173[0m
+[32mINFO - PRED mode=reservoir attempt=17 class=4 label=Sitting conf=0.99500173 infer_us=172397 head_us=93[0m
+[32mINFO - samples=760, t_ms=38193, loop_us=1290, window_len=80, accel=(-468, 1884, 16240)[0m
+[32mINFO - samples=780, t_ms=39050, loop_us=873, window_len=80, accel=(2472, 2924, 15148)[0m
+[32mINFO - microflow feature ok: attempt=18, inference_us=172315, input_q0=6, feat0=0, feat1=0.14648184, feat2=5.1268644, feat3=0.21972276[0m
+[32mINFO - online32 forward ok: attempt=18, online_us=76, pred=4(Sitting), confidence=0.99072814[0m
+[32mINFO - PRED mode=reservoir attempt=18 class=4 label=Sitting conf=0.99072814 infer_us=172315 head_us=76[0m
+[32mINFO - samples=800, t_ms=40194, loop_us=1210, window_len=80, accel=(-7272, -4876, 27176)[0m
+[32mINFO - samples=820, t_ms=41050, loop_us=873, window_len=80, accel=(-1472, 996, 15636)[0m
+[32mINFO - microflow feature ok: attempt=19, inference_us=172425, input_q0=5, feat0=0, feat1=0.51268643, feat2=4.540937, feat3=0.14648184[0m
+[32mINFO - online32 forward ok: attempt=19, online_us=93, pred=4(Sitting), confidence=0.94528526[0m
+[32mINFO - PRED mode=reservoir attempt=19 class=4 label=Sitting conf=0.94528526 infer_us=172425 head_us=93[0m
+[32mINFO - samples=840, t_ms=42194, loop_us=1289, window_len=80, accel=(-656, 17408, 2752)[0m
+[32mINFO - samples=860, t_ms=43050, loop_us=873, window_len=80, accel=(-1272, 16584, -3072)[0m
+[32mINFO - microflow feature ok: attempt=20, inference_us=172313, input_q0=-15, feat0=0.21972276, feat1=1.7577821, feat2=2.4901912, feat3=0.8056501[0m
+[32mINFO - online32 forward ok: attempt=20, online_us=77, pred=2(Upstairs), confidence=0.812612[0m
+[32mINFO - PRED mode=reservoir attempt=20 class=2 label=Upstairs conf=0.812612 infer_us=172313 head_us=77[0m
+[32mINFO - microflow latency stats: attempts=20, min_us=172286, mean_us=172391, max_us=173130[0m
+[32mINFO - samples=880, t_ms=44203, loop_us=1202, window_len=80, accel=(108, 10444, -2660)[0m
+[32mINFO - samples=900, t_ms=45050, loop_us=873, window_len=80, accel=(832, 21584, 1320)[0m
+[32mINFO - microflow feature ok: attempt=21, inference_us=172333, input_q0=4, feat0=0.51268643, feat1=2.6366732, feat2=0.8056501, feat3=1.1718547[0m
+[32mINFO - online32 forward ok: attempt=21, online_us=85, pred=2(Upstairs), confidence=0.6936719[0m
+[32mINFO - PRED mode=reservoir attempt=21 class=2 label=Upstairs conf=0.6936719 infer_us=172333 head_us=85[0m
+[32mINFO - samples=920, t_ms=46194, loop_us=1286, window_len=80, accel=(-2816, 15516, -360)[0m
+[32mINFO - samples=940, t_ms=47050, loop_us=873, window_len=80, accel=(3064, 26008, 2424)[0m
+[32mINFO - microflow feature ok: attempt=22, inference_us=172187, input_q0=6, feat0=0.43944553, feat1=2.2704685, feat2=0.952132, feat3=1.0253729[0m
+[32mINFO - online32 forward ok: attempt=22, online_us=77, pred=2(Upstairs), confidence=0.6512732[0m
+[32mINFO - PRED mode=reservoir attempt=22 class=2 label=Upstairs conf=0.6512732 infer_us=172187 head_us=77[0m
+[32mINFO - samples=960, t_ms=48194, loop_us=1206, window_len=80, accel=(2824, 14564, 3608)[0m
+[32mINFO - samples=980, t_ms=49050, loop_us=873, window_len=80, accel=(-296, 21464, -420)[0m
+[32mINFO - microflow feature ok: attempt=23, inference_us=172268, input_q0=-2, feat0=0.36620462, feat1=2.0507457, feat2=1.1718547, feat3=1.2450956[0m
+[32mINFO - online32 forward ok: attempt=23, online_us=93, pred=2(Upstairs), confidence=0.5950357[0m
+[32mINFO - PRED mode=reservoir attempt=23 class=2 label=Upstairs conf=0.5950357 infer_us=172268 head_us=93[0m
+[32mINFO - samples=1000, t_ms=50194, loop_us=1286, window_len=80, accel=(-1312, 10996, -1992)[0m
+[32mINFO - samples=1020, t_ms=51050, loop_us=874, window_len=80, accel=(-1396, 19796, -516)[0m
+[32mINFO - microflow feature ok: attempt=24, inference_us=172268, input_q0=14, feat0=0.43944553, feat1=2.1972277, feat2=1.1718547, feat3=1.4648185[0m
+[32mINFO - online32 forward ok: attempt=24, online_us=77, pred=2(Upstairs), confidence=0.6785078[0m
+[32mINFO - PRED mode=reservoir attempt=24 class=2 label=Upstairs conf=0.6785078 infer_us=172268 head_us=77[0m
+[32mINFO - samples=1040, t_ms=52194, loop_us=1206, window_len=80, accel=(-1440, 13616, 120)[0m
+[32mINFO - samples=1060, t_ms=53050, loop_us=874, window_len=80, accel=(2144, 17224, -648)[0m
+[32mINFO - microflow feature ok: attempt=25, inference_us=172306, input_q0=2, feat0=0.29296368, feat1=2.0507457, feat2=1.0986139, feat3=1.1718547[0m
+[32mINFO - online32 forward ok: attempt=25, online_us=93, pred=2(Upstairs), confidence=0.69986194[0m
+[32mINFO - PRED mode=reservoir attempt=25 class=2 label=Upstairs conf=0.69986194 infer_us=172306 head_us=93[0m
+[32mINFO - samples=1080, t_ms=54195, loop_us=1286, window_len=80, accel=(1580, 12364, 2388)[0m
+[32mINFO - samples=1100, t_ms=55050, loop_us=873, window_len=80, accel=(392, 19448, -1720)[0m
+[32mINFO - microflow feature ok: attempt=26, inference_us=172149, input_q0=2, feat0=0.29296368, feat1=1.7577821, feat2=1.1718547, feat3=0.87889105[0m
+[32mINFO - online32 forward ok: attempt=26, online_us=77, pred=2(Upstairs), confidence=0.576698[0m
+[32mINFO - PRED mode=reservoir attempt=26 class=2 label=Upstairs conf=0.576698 infer_us=172149 head_us=77[0m
+[32mINFO - samples=1120, t_ms=56194, loop_us=1207, window_len=80, accel=(-2044, 26352, 2832)[0m
+[32mINFO - samples=1140, t_ms=57050, loop_us=873, window_len=80, accel=(436, 11956, 284)[0m
+[32mINFO - microflow feature ok: attempt=27, inference_us=172245, input_q0=10, feat0=0.43944553, feat1=1.9775048, feat2=1.0986139, feat3=0.87889105[0m
+[32mINFO - online32 forward ok: attempt=27, online_us=84, pred=2(Upstairs), confidence=0.49710995[0m
+[32mINFO - PRED mode=reservoir attempt=27 class=2 label=Upstairs conf=0.49710995 infer_us=172245 head_us=84[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=1 buffer_len=11 push_us=45 total_seen=11 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=2 buffer_len=12 push_us=6 total_seen=12 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=3 buffer_len=13 push_us=6 total_seen=13 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=4 buffer_len=14 push_us=6 total_seen=14 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=5 buffer_len=15 push_us=6 total_seen=15 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=6 buffer_len=16 push_us=6 total_seen=16 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=7 buffer_len=17 push_us=6 total_seen=17 attempt=27[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=8 buffer_len=18 push_us=6 total_seen=18 attempt=27[0m
+[32mINFO - samples=1160, t_ms=58283, loop_us=1310, window_len=80, accel=(-4584, 20240, -516)[0m
+[32mINFO - samples=1180, t_ms=59050, loop_us=873, window_len=80, accel=(-1076, 8828, -2020)[0m
+[32mINFO - microflow feature ok: attempt=28, inference_us=172306, input_q0=0, feat0=0.58592737, feat1=2.2704685, feat2=0.87889105, feat3=1.1718547[0m
+[32mINFO - online32 forward ok: attempt=28, online_us=84, pred=2(Upstairs), confidence=0.54638183[0m
+[32mINFO - PRED mode=reservoir attempt=28 class=2 label=Upstairs conf=0.54638183 infer_us=172306 head_us=84[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=9 buffer_len=19 push_us=49 total_seen=19 attempt=28[0m
+[32mINFO - LABEL mode=reservoir label=2 name=Upstairs added=1 class_len=10 buffer_len=20 push_us=7 total_seen=20 attempt=28[0m
+[32mINFO - TRAIN mode=reservoir policy=reservoir step=2 batch_len=12 sample_us=45 update_us=631 total_seen=20 buffer_len=20 attempt=28[0m
+[32mINFO - samples=1200, t_ms=60229, loop_us=1262, window_len=80, accel=(-920, 18624, 2340)[0m
+[32mINFO - samples=1220, t_ms=61050, loop_us=873, window_len=80, accel=(-940, 15368, 1096)[0m
+[32mINFO - microflow feature ok: attempt=29, inference_us=172425, input_q0=-7, feat0=0.43944553, feat1=2.3437095, feat2=0.73240924, feat3=1.0986139[0m
+[32mINFO - online32 forward ok: attempt=29, online_us=85, pred=2(Upstairs), confidence=0.6704834[0m
+[32mINFO - PRED mode=reservoir attempt=29 class=2 label=Upstairs conf=0.6704834 infer_us=172425 head_us=85[0m
+[32mINFO - samples=1240, t_ms=62195, loop_us=1285, window_len=80, accel=(-1156, 16916, 1668)[0m
+[32mINFO - samples=1260, t_ms=63050, loop_us=873, window_len=80, accel=(-3968, 22432, 1868)[0m
+[32mINFO - microflow feature ok: attempt=30, inference_us=172179, input_q0=3, feat0=0.36620462, feat1=2.1972277, feat2=0.87889105, feat3=0.87889105[0m
+[32mINFO - online32 forward ok: attempt=30, online_us=85, pred=2(Upstairs), confidence=0.6206069[0m
+[32mINFO - PRED mode=reservoir attempt=30 class=2 label=Upstairs conf=0.6206069 infer_us=172179 head_us=85[0m
+[32mINFO - microflow latency stats: attempts=30, min_us=172149, mean_us=172349, max_us=173130[0m
+[32mINFO - samples=1280, t_ms=64203, loop_us=1202, window_len=80, accel=(2144, 8320, -1260)[0m
+[32mINFO - samples=1300, t_ms=65050, loop_us=873, window_len=80, accel=(2148, 24896, 3796)[0m
+[32mINFO - microflow feature ok: attempt=31, inference_us=172282, input_q0=3, feat0=0.51268643, feat1=2.3437095, feat2=0.73240924, feat3=1.0253729[0m
+[32mINFO - online32 forward ok: attempt=31, online_us=85, pred=2(Upstairs), confidence=0.553531[0m
+[32mINFO - PRED mode=reservoir attempt=31 class=2 label=Upstairs conf=0.553531 infer_us=172282 head_us=85[0m
+[32mINFO - samples=1320, t_ms=66194, loop_us=1286, window_len=80, accel=(-944, 8696, -4980)[0m
+[32mINFO - samples=1340, t_ms=67050, loop_us=873, window_len=80, accel=(-1172, 29820, 2176)[0m
+[32mINFO - microflow feature ok: attempt=32, inference_us=172274, input_q0=12, feat0=0.6591683, feat1=2.783155, feat2=0.51268643, feat3=1.1718547[0m
+[32mINFO - online32 forward ok: attempt=32, online_us=85, pred=2(Upstairs), confidence=0.58861727[0m
+[32mINFO - PRED mode=reservoir attempt=32 class=2 label=Upstairs conf=0.58861727 infer_us=172274 head_us=85[0m
+[32mINFO - samples=1360, t_ms=68194, loop_us=1206, window_len=80, accel=(3660, 22884, 368)[0m
+[32mINFO - samples=1380, t_ms=69050, loop_us=873, window_len=80, accel=(-128, 16760, 780)[0m
+[32mINFO - microflow feature ok: attempt=33, inference_us=172322, input_q0=3, feat0=0.58592737, feat1=2.929637, feat2=0.43944553, feat3=0.952132[0m
+[32mINFO - online32 forward ok: attempt=33, online_us=92, pred=2(Upstairs), confidence=0.6337093[0m
+[32mINFO - PRED mode=reservoir attempt=33 class=2 label=Upstairs conf=0.6337093 infer_us=172322 head_us=92[0m
+[32mINFO - samples=1400, t_ms=70194, loop_us=1286, window_len=80, accel=(1312, 10676, 2308)[0m
+[32mINFO - samples=1420, t_ms=71050, loop_us=873, window_len=80, accel=(3912, 15624, 1692)[0m
+[32mINFO - microflow feature ok: attempt=34, inference_us=172203, input_q0=16, feat0=0.58592737, feat1=2.4169505, feat2=0.51268643, feat3=0.6591683[0m
+[32mINFO - online32 forward ok: attempt=34, online_us=76, pred=2(Upstairs), confidence=0.4539324[0m
+[32mINFO - PRED mode=reservoir attempt=34 class=2 label=Upstairs conf=0.4539324 infer_us=172203 head_us=76[0m
+[32mINFO - samples=1440, t_ms=72194, loop_us=1206, window_len=80, accel=(3944, 15396, 20)[0m
+[32mINFO - samples=1460, t_ms=73050, loop_us=873, window_len=80, accel=(-2252, 16256, -440)[0m
+[32mINFO - microflow feature ok: attempt=35, inference_us=172279, input_q0=10, feat0=0.51268643, feat1=2.3437095, feat2=0.8056501, feat3=0.87889105[0m
+[32mINFO - online32 forward ok: attempt=35, online_us=93, pred=2(Upstairs), confidence=0.5571683[0m
+[32mINFO - PRED mode=reservoir attempt=35 class=2 label=Upstairs conf=0.5571683 infer_us=172279 head_us=93[0m
+[32mINFO - samples=1480, t_ms=74194, loop_us=1286, window_len=80, accel=(-812, 6184, -2564)[0m
+[32mINFO - samples=1500, t_ms=75050, loop_us=873, window_len=80, accel=(1016, 22596, -1728)[0m
+[32mINFO - microflow feature ok: attempt=36, inference_us=172281, input_q0=17, feat0=0.73240924, feat1=2.709914, feat2=0.58592737, feat3=1.1718547[0m
+[32mINFO - online32 forward ok: attempt=36, online_us=77, pred=2(Upstairs), confidence=0.59075373[0m
+[32mINFO - PRED mode=reservoir attempt=36 class=2 label=Upstairs conf=0.59075373 infer_us=172281 head_us=77[0m
+[32mINFO - samples=1520, t_ms=76195, loop_us=1206, window_len=80, accel=(1260, 30412, -712)[0m
+[32mINFO - samples=1540, t_ms=77050, loop_us=873, window_len=80, accel=(828, 15124, 5116)[0m
+[32mINFO - microflow feature ok: attempt=37, inference_us=172346, input_q0=4, feat0=0.6591683, feat1=3.1493597, feat2=0.21972276, feat3=0.952132[0m
+[32mINFO - online32 forward ok: attempt=37, online_us=93, pred=2(Upstairs), confidence=0.58447295[0m
+[32mINFO - PRED mode=reservoir attempt=37 class=2 label=Upstairs conf=0.58447295 infer_us=172346 head_us=93[0m
+[32mINFO - samples=1560, t_ms=78194, loop_us=1285, window_len=80, accel=(4600, 8808, 3960)[0m
+[32mINFO - samples=1580, t_ms=79050, loop_us=873, window_len=80, accel=(888, 32767, 9316)[0m
+[32mINFO - microflow feature ok: attempt=38, inference_us=172228, input_q0=9, feat0=0.58592737, feat1=2.709914, feat2=0.36620462, feat3=0.58592737[0m
+[32mINFO - online32 forward ok: attempt=38, online_us=77, pred=3(Downstairs), confidence=0.4729918[0m
+[32mINFO - PRED mode=reservoir attempt=38 class=3 label=Downstairs conf=0.4729918 infer_us=172228 head_us=77[0m
+[32mINFO - samples=1600, t_ms=80195, loop_us=1207, window_len=80, accel=(1268, 15504, -368)[0m
+[32mINFO - samples=1620, t_ms=81050, loop_us=873, window_len=80, accel=(-5544, 19700, 4848)[0m
+[32mINFO - microflow feature ok: attempt=39, inference_us=172347, input_q0=19, feat0=0.58592737, feat1=2.6366732, feat2=0.6591683, feat3=0.87889105[0m
+[32mINFO - online32 forward ok: attempt=39, online_us=92, pred=2(Upstairs), confidence=0.5094738[0m
+[32mINFO - PRED mode=reservoir attempt=39 class=2 label=Upstairs conf=0.5094738 infer_us=172347 head_us=92[0m
+[32mINFO - samples=1640, t_ms=82195, loop_us=1286, window_len=80, accel=(-5048, 26764, 48)[0m
+[32mINFO - samples=1660, t_ms=83050, loop_us=873, window_len=80, accel=(-1596, 15116, 268)[0m
+[32mINFO - microflow feature ok: attempt=40, inference_us=172280, input_q0=9, feat0=0.6591683, feat1=3.0761187, feat2=0.43944553, feat3=1.0986139[0m
+[32mINFO - online32 forward ok: attempt=40, online_us=77, pred=2(Upstairs), confidence=0.59589285[0m
+[32mINFO - PRED mode=reservoir attempt=40 class=2 label=Upstairs conf=0.59589285 infer_us=172280 head_us=77[0m
+[32mINFO - microflow latency stats: attempts=40, min_us=172149, mean_us=172333, max_us=173130[0m
+[32mINFO - samples=1680, t_ms=84203, loop_us=1202, window_len=80, accel=(476, 13144, 1116)[0m
+[32mINFO - samples=1700, t_ms=85050, loop_us=873, window_len=80, accel=(4404, 26204, 7684)[0m
+[32mINFO - microflow feature ok: attempt=41, inference_us=172295, input_q0=-9, feat0=0.51268643, feat1=2.856396, feat2=0.21972276, feat3=0.58592737[0m
+[32mINFO - online32 forward ok: attempt=41, online_us=93, pred=2(Upstairs), confidence=0.493883[0m
+[32mINFO - PRED mode=reservoir attempt=41 class=2 label=Upstairs conf=0.493883 infer_us=172295 head_us=93[0m
+[32mINFO - samples=1720, t_ms=86194, loop_us=1285, window_len=80, accel=(-2428, 12492, -876)[0m
+[32mINFO - samples=1740, t_ms=87050, loop_us=873, window_len=80, accel=(3128, 30068, 7452)[0m
+[32mINFO - microflow feature ok: attempt=42, inference_us=172187, input_q0=7, feat0=0.29296368, feat1=2.3437095, feat2=0.58592737, feat3=0.43944553[0m
+[32mINFO - online32 forward ok: attempt=42, online_us=77, pred=3(Downstairs), confidence=0.5093693[0m
+[32mINFO - PRED mode=reservoir attempt=42 class=3 label=Downstairs conf=0.5093693 infer_us=172187 head_us=77[0m
+[32mINFO - samples=1760, t_ms=88195, loop_us=1206, window_len=80, accel=(-220, 20876, 3276)[0m
+[32mINFO - samples=1780, t_ms=89050, loop_us=873, window_len=80, accel=(-416, 10120, -4688)[0m
+[32mINFO - microflow feature ok: attempt=43, inference_us=172299, input_q0=-1, feat0=0.36620462, feat1=2.2704685, feat2=0.87889105, feat3=0.952132[0m
+[32mINFO - online32 forward ok: attempt=43, online_us=93, pred=2(Upstairs), confidence=0.66156644[0m
+[32mINFO - PRED mode=reservoir attempt=43 class=2 label=Upstairs conf=0.66156644 infer_us=172299 head_us=93[0m
+[32mINFO - samples=1800, t_ms=90195, loop_us=1285, window_len=80, accel=(468, 15348, -1556)[0m
+[32mINFO - samples=1820, t_ms=91050, loop_us=873, window_len=80, accel=(5044, 7464, -6340)[0m
+[32mINFO - microflow feature ok: attempt=44, inference_us=172273, input_q0=5, feat0=0.73240924, feat1=3.0761187, feat2=0.43944553, feat3=1.0253729[0m
+[32mINFO - online32 forward ok: attempt=44, online_us=85, pred=2(Upstairs), confidence=0.6316348[0m
+[32mINFO - PRED mode=reservoir attempt=44 class=2 label=Upstairs conf=0.6316348 infer_us=172273 head_us=85[0m
+[32mINFO - samples=1840, t_ms=92194, loop_us=1207, window_len=80, accel=(668, -3884, -8952)[0m
+[32mINFO - samples=1860, t_ms=93050, loop_us=873, window_len=80, accel=(-2788, 12580, 9432)[0m
+[32mINFO - microflow feature ok: attempt=45, inference_us=172368, input_q0=7, feat0=0.73240924, feat1=3.4423232, feat2=0.14648184, feat3=0.51268643[0m
+[32mINFO - online32 forward ok: attempt=45, online_us=85, pred=2(Upstairs), confidence=0.4832446[0m
+[32mINFO - PRED mode=reservoir attempt=45 class=2 label=Upstairs conf=0.4832446 infer_us=172368 head_us=85[0m
+[32mINFO - samples=1880, t_ms=94195, loop_us=1286, window_len=80, accel=(4372, 8312, 152)[0m
+[32mINFO - samples=1900, t_ms=95050, loop_us=873, window_len=80, accel=(2316, 16512, 448)[0m
+[32mINFO - microflow feature ok: attempt=46, inference_us=172258, input_q0=8, feat0=0.43944553, feat1=2.856396, feat2=0.43944553, feat3=0.29296368[0m
+[32mINFO - online32 forward ok: attempt=46, online_us=85, pred=3(Downstairs), confidence=0.5578524[0m
+[32mINFO - PRED mode=reservoir attempt=46 class=3 label=Downstairs conf=0.5578524 infer_us=172258 head_us=85[0m
+[32mINFO - samples=1920, t_ms=96195, loop_us=1206, window_len=80, accel=(-1656, 6612, 1580)[0m
+[32mINFO - samples=1940, t_ms=97050, loop_us=873, window_len=80, accel=(104, 14260, -3016)[0m
+[32mINFO - microflow feature ok: attempt=47, inference_us=172335, input_q0=18, feat0=0.51268643, feat1=2.709914, feat2=0.6591683, feat3=0.58592737[0m
+[32mINFO - online32 forward ok: attempt=47, online_us=84, pred=2(Upstairs), confidence=0.47850347[0m
+[32mINFO - PRED mode=reservoir attempt=47 class=2 label=Upstairs conf=0.47850347 infer_us=172335 head_us=84[0m
+[32mINFO - samples=1960, t_ms=98195, loop_us=1285, window_len=80, accel=(680, 9632, -2712)[0m
+[32mINFO - samples=1980, t_ms=99050, loop_us=873, window_len=80, accel=(1136, 27112, 3660)[0m
+[32mINFO - microflow feature ok: attempt=48, inference_us=172280, input_q0=1, feat0=0.6591683, feat1=3.1493597, feat2=0.36620462, feat3=0.73240924[0m
+[32mINFO - online32 forward ok: attempt=48, online_us=84, pred=2(Upstairs), confidence=0.50000477[0m
+[32mINFO - PRED mode=reservoir attempt=48 class=2 label=Upstairs conf=0.50000477 infer_us=172280 head_us=84[0m
+[32mINFO - samples=2000, t_ms=100195, loop_us=1207, window_len=80, accel=(-264, 11888, 3696)[0m
+[32mINFO - samples=2020, t_ms=101050, loop_us=874, window_len=80, accel=(-4644, 11852, 7796)[0m
+[32mINFO - microflow feature ok: attempt=49, inference_us=172338, input_q0=8, feat0=0.58592737, feat1=3.2958415, feat2=0.07324092, feat3=0.36620462[0m
+[32mINFO - online32 forward ok: attempt=49, online_us=93, pred=2(Upstairs), confidence=0.4518743[0m
+[32mINFO - PRED mode=reservoir attempt=49 class=2 label=Upstairs conf=0.4518743 infer_us=172338 head_us=93[0m
+[32mINFO - samples=2040, t_ms=102195, loop_us=1286, window_len=80, accel=(8576, 19860, 652)[0m
+[32mINFO - samples=2060, t_ms=103050, loop_us=873, window_len=80, accel=(9180, 32767, 68)[0m
+[32mINFO - microflow feature ok: attempt=50, inference_us=172257, input_q0=5, feat0=0.51268643, feat1=3.1493597, feat2=0.14648184, feat3=0.14648184[0m
+[32mINFO - online32 forward ok: attempt=50, online_us=76, pred=3(Downstairs), confidence=0.5448771[0m
+[32mINFO - PRED mode=reservoir attempt=50 class=3 label=Downstairs conf=0.5448771 infer_us=172257 head_us=76[0m
+[32mINFO - microflow latency stats: attempts=50, min_us=172149, mean_us=172324, max_us=173130[0m
+[32mINFO - samples=2080, t_ms=104203, loop_us=1207, window_len=80, accel=(-1848, 9484, 4208)[0m
+
+Script done on 2026-05-09 23:00:27+03:00 [COMMAND_EXIT_CODE="124"]

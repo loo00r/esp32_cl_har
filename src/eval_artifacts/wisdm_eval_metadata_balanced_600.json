@@ -1,0 +1,33 @@
+{
+  "axes": 3,
+  "class_distribution": {
+    "Downstairs": 100,
+    "Jogging": 100,
+    "Sitting": 100,
+    "Standing": 100,
+    "Upstairs": 100,
+    "Walking": 100
+  },
+  "class_names": [
+    "Walking",
+    "Jogging",
+    "Upstairs",
+    "Downstairs",
+    "Sitting",
+    "Standing"
+  ],
+  "creation_timestamp": "2026-05-13T10:20:18.444117+00:00",
+  "flat_len": 240,
+  "input_scale": 0.030599215999245644,
+  "input_zero_point": 9,
+  "num_classes": 6,
+  "num_windows": 600,
+  "preprocessing_note": "WISDM rows cleaned and sorted by user_id/activity/timestamp; contiguous segments split by timestamp gaps; full-corpus z-score normalization; 80x3 windows with stride 40; MicroFlow-32 int8 quantization.",
+  "selection": "deterministic_evenly_spaced_per_class",
+  "source_dataset": "data/WISDM_ar_v1.1/WISDM_ar_v1.1_raw.txt",
+  "source_index_max": 9153,
+  "source_index_min": 0,
+  "tag": "balanced_600",
+  "window_len": 80,
+  "windows_per_class": 100
+}
