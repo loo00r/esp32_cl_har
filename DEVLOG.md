@@ -483,7 +483,7 @@ ESP32 має 320 KB SRAM. Rust std потребує аллокатора та OS
 
 ## Фаза 3c — Host-side sanity check для quantization/layout
 
-**Що зроблено**: додано окремий host-side script [`scripts/quant_sanity_check.py`](/home/g00n3r/projects/esp32_cl_har/scripts/quant_sanity_check.py:1), який перевіряє, що Rust-side quantization path відтворює Python reference для full-conv `MicroFlow` classifier artifact.
+**Що зроблено**: додано окремий host-side script [`scripts/checks/quant_sanity_check.py`](/home/g00n3r/projects/esp32_cl_har/scripts/checks/quant_sanity_check.py:1), який перевіряє, що Rust-side quantization path відтворює Python reference для full-conv `MicroFlow` classifier artifact.
 
 **Що саме перевіряє script**:
 
@@ -2199,7 +2199,7 @@ PRED mode=reservoir attempt=13 class=4 label=Sitting conf=0.99455464 infer_us=17
 
 **Додано**:
 
-- [`scripts/parse_experiment_logs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_experiment_logs.py:1)
+- [`scripts/parsing/parse_experiment_logs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parsing/parse_experiment_logs.py:1)
   - парсить `EXPERIMENT`, `RESOURCE`, `PRED`, `LABEL`, `TRAIN`
   - прибирає ANSI color codes з `espflash monitor`
   - ігнорує bootloader/debug text і markdown placeholders
@@ -2214,9 +2214,9 @@ PRED mode=reservoir attempt=13 class=4 label=Sitting conf=0.99455464 infer_us=17
 **Приклад використання**:
 
 ```bash
-python3 scripts/parse_experiment_logs.py logs/no_adapt_session.txt --out-dir parsed_logs/no_adapt
-python3 scripts/parse_experiment_logs.py logs/reservoir_session.txt --out-dir parsed_logs/reservoir
-python3 scripts/parse_experiment_logs.py logs/fifo_session.txt --out-dir parsed_logs/fifo
+python3 scripts/parsing/parse_experiment_logs.py logs/no_adapt_session.txt --out-dir parsed_logs/no_adapt
+python3 scripts/parsing/parse_experiment_logs.py logs/reservoir_session.txt --out-dir parsed_logs/reservoir
+python3 scripts/parsing/parse_experiment_logs.py logs/fifo_session.txt --out-dir parsed_logs/fifo
 ```
 
 **Межі кроку**:
@@ -2229,8 +2229,8 @@ python3 scripts/parse_experiment_logs.py logs/fifo_session.txt --out-dir parsed_
 **Команди**:
 
 ```bash
-python3 -m py_compile scripts/parse_experiment_logs.py
-python3 scripts/parse_experiment_logs.py DEVLOG.md --out-dir /tmp/esp32_cl_har_parsed_devlog
+python3 -m py_compile scripts/parsing/parse_experiment_logs.py
+python3 scripts/parsing/parse_experiment_logs.py DEVLOG.md --out-dir /tmp/esp32_cl_har_parsed_devlog
 ```
 
 **Smoke output**:
@@ -2287,9 +2287,9 @@ script -q -c "timeout 55s bash -lc '. $HOME/export-esp.sh && cargo run --feature
 
 script -q -c "timeout 55s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har'" logs/raw/fifo_dryrun_2026-05-09.txt
 
-python3 scripts/parse_experiment_logs.py logs/raw/no_adapt_dryrun_2026-05-09.txt --out-dir logs/parsed/no_adapt
-python3 scripts/parse_experiment_logs.py logs/raw/reservoir_dryrun_2026-05-09.txt --out-dir logs/parsed/reservoir
-python3 scripts/parse_experiment_logs.py logs/raw/fifo_dryrun_2026-05-09.txt --out-dir logs/parsed/fifo
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/no_adapt_dryrun_2026-05-09.txt --out-dir logs/parsed/no_adapt
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/reservoir_dryrun_2026-05-09.txt --out-dir logs/parsed/reservoir
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/fifo_dryrun_2026-05-09.txt --out-dir logs/parsed/fifo
 ```
 
 **Hardware output summary**:
@@ -2347,7 +2347,7 @@ logs/parsed/fifo/fifo_dryrun_2026-05-09_*.csv/json
 
 **Додано**:
 
-- [`scripts/summarize_experiment_runs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/summarize_experiment_runs.py:1)
+- [`scripts/analysis/summarize_experiment_runs.py`](/home/g00n3r/projects/esp32_cl_har/scripts/analysis/summarize_experiment_runs.py:1)
   - читає `*_summary.json` після `parse_experiment_logs.py`
   - формує одну CSV-таблицю для `no_adapt / fifo / reservoir`
   - виводить `pred_rows`, `label_rows`, `train_rows`, `replay_ram_est`, latency means, update means
@@ -2357,9 +2357,9 @@ logs/parsed/fifo/fifo_dryrun_2026-05-09_*.csv/json
 **Команди**:
 
 ```bash
-python3 -m py_compile scripts/summarize_experiment_runs.py
+python3 -m py_compile scripts/analysis/summarize_experiment_runs.py
 
-python3 scripts/summarize_experiment_runs.py \
+python3 scripts/analysis/summarize_experiment_runs.py \
   logs/parsed/no_adapt/no_adapt_dryrun_2026-05-09_summary.json \
   logs/parsed/reservoir/reservoir_dryrun_2026-05-09_summary.json \
   logs/parsed/fifo/fifo_dryrun_2026-05-09_summary.json \
@@ -2448,17 +2448,17 @@ Label input:
 ```bash
 script -q -c "timeout 110s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend --bin esp32_cl_har'" logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt
 
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/no_adapt
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_2class/no_adapt_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/no_adapt
 
 script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels,replay_fifo_policy --bin esp32_cl_har'" logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt
 
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/fifo
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_2class/fifo_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/fifo
 
 script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt
 
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/reservoir
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_2class/reservoir_pilot_2class_2026-05-09.txt --out-dir logs/parsed/pilot_2class/reservoir
 
-python3 scripts/summarize_experiment_runs.py \
+python3 scripts/analysis/summarize_experiment_runs.py \
   logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_summary.json \
   logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_summary.json \
   logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_summary.json \
@@ -2527,7 +2527,7 @@ reservoir:
 
 **Додано**:
 
-- [`scripts/evaluate_segments.py`](/home/g00n3r/projects/esp32_cl_har/scripts/evaluate_segments.py:1)
+- [`scripts/analysis/evaluate_segments.py`](/home/g00n3r/projects/esp32_cl_har/scripts/analysis/evaluate_segments.py:1)
   - читає parsed `*_pred.csv`
   - приймає segment specs у форматі `name:start:end:accepted_label|accepted_label`
   - рахує `rows`, `accepted_rows`, `accepted_rate`, `mean_conf`, `pred_counts`
@@ -2537,21 +2537,21 @@ reservoir:
 **Команди**:
 
 ```bash
-python3 -m py_compile scripts/evaluate_segments.py
+python3 -m py_compile scripts/analysis/evaluate_segments.py
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_pred.csv \
   --segment sitting:1:6:Sitting \
   --segment standing_like:7:45:Standing\|Upstairs \
   --out-csv logs/parsed/pilot_2class/no_adapt/no_adapt_pilot_2class_2026-05-09_segments.csv
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_pred.csv \
   --segment sitting:1:15:Sitting \
   --segment standing_like:16:50:Standing\|Upstairs \
   --out-csv logs/parsed/pilot_2class/fifo/fifo_pilot_2class_2026-05-09_segments.csv
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_2class/reservoir/reservoir_pilot_2class_2026-05-09_pred.csv \
   --segment sitting:1:16:Sitting \
   --segment standing_like:17:50:Standing\|Upstairs \
@@ -2592,7 +2592,7 @@ reservoir  standing_like  17-50     Standing|Upstairs   0.8529         Sitting=5
 
 **Додано**:
 
-- [`scripts/build_pilot_results_tables.py`](/home/g00n3r/projects/esp32_cl_har/scripts/build_pilot_results_tables.py:1)
+- [`scripts/analysis/build_pilot_results_tables.py`](/home/g00n3r/projects/esp32_cl_har/scripts/analysis/build_pilot_results_tables.py:1)
   - читає `pilot_2class_comparison_*.csv`
   - читає `pilot_2class_segment_eval_*.csv`
   - формує paper-ready Markdown tables
@@ -2603,9 +2603,9 @@ reservoir  standing_like  17-50     Standing|Upstairs   0.8529         Sitting=5
 **Команди**:
 
 ```bash
-python3 -m py_compile scripts/build_pilot_results_tables.py
+python3 -m py_compile scripts/analysis/build_pilot_results_tables.py
 
-python3 scripts/build_pilot_results_tables.py \
+python3 scripts/analysis/build_pilot_results_tables.py \
   --comparison-csv logs/parsed/pilot_2class/pilot_2class_comparison_2026-05-09.csv \
   --segment-csv logs/parsed/pilot_2class/pilot_2class_segment_eval_2026-05-09.csv \
   --out-md results/tables/phase5_pilot_results_2026-05-09.md
@@ -2682,29 +2682,29 @@ script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --featur
 
 script -q -c "timeout 120s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,cl_uart_labels --bin esp32_cl_har'" logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt
 
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_no_adapt_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/no_adapt
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_fifo_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/fifo
-python3 scripts/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/reservoir
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_no_adapt_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/no_adapt
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_fifo_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/fifo
+python3 scripts/parsing/parse_experiment_logs.py logs/raw/pilot_sit_up/sit_up_reservoir_2026-05-09.txt --out-dir logs/parsed/pilot_sit_up/reservoir
 
-python3 scripts/summarize_experiment_runs.py \
+python3 scripts/analysis/summarize_experiment_runs.py \
   logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_summary.json \
   logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_summary.json \
   logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_summary.json \
   --out-csv logs/parsed/pilot_sit_up/sit_up_comparison_2026-05-09.csv
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_pred.csv \
   --segment sitting:1:18:Sitting \
   --segment upstairs_like:19:45:Upstairs\|Downstairs \
   --out-csv logs/parsed/pilot_sit_up/no_adapt/sit_up_no_adapt_2026-05-09_segments.csv
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_pred.csv \
   --segment sitting:1:15:Sitting \
   --segment upstairs_like:16:50:Upstairs\|Downstairs \
   --out-csv logs/parsed/pilot_sit_up/fifo/sit_up_fifo_2026-05-09_segments.csv
 
-python3 scripts/evaluate_segments.py \
+python3 scripts/analysis/evaluate_segments.py \
   logs/parsed/pilot_sit_up/reservoir/sit_up_reservoir_2026-05-09_pred.csv \
   --segment sitting:1:17:Sitting \
   --segment upstairs_like:18:50:Upstairs\|Downstairs \
@@ -3543,8 +3543,8 @@ int8[240] WISDM window
 
 **Додано**:
 
-- [`scripts/export_wisdm_device_eval_artifact.py`](/home/g00n3r/projects/esp32_cl_har/scripts/export_wisdm_device_eval_artifact.py:1)
-- [`scripts/parse_wisdm_device_eval.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_wisdm_device_eval.py:1)
+- [`scripts/data/export_wisdm_device_eval_artifact.py`](/home/g00n3r/projects/esp32_cl_har/scripts/data/export_wisdm_device_eval_artifact.py:1)
+- [`scripts/parsing/parse_wisdm_device_eval.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parsing/parse_wisdm_device_eval.py:1)
 - [`src/bin/wisdm_device_eval.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/wisdm_device_eval.rs:1)
 - [`src/eval_artifacts/wisdm_eval_windows_i8_smoke_120.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_windows_i8_smoke_120.bin:1)
 - [`src/eval_artifacts/wisdm_eval_labels_u8_smoke_120.bin`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_eval_labels_u8_smoke_120.bin:1)
@@ -3561,7 +3561,7 @@ int8[240] WISDM window
 Команда:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/export_wisdm_device_eval_artifact.py
+/home/g00n3r/.venvs/base/bin/python scripts/data/export_wisdm_device_eval_artifact.py
 ```
 
 Згенеровані artifact-и:
@@ -3797,7 +3797,7 @@ true=5 pred0=0  pred1=0  pred2=0  pred3=0  pred4=0  pred5=100
 Parser command:
 
 ```bash
-python3 scripts/parse_wisdm_device_eval.py \
+python3 scripts/parsing/parse_wisdm_device_eval.py \
   logs/raw/wisdm_device_eval/wisdm_device_eval_smoke_120_2026-05-13.txt \
   logs/raw/wisdm_device_eval/wisdm_device_eval_balanced_600_2026-05-13.txt
 ```
@@ -3867,13 +3867,13 @@ balanced_600:  total=600 correct=478 accuracy=0.7966667  mean_infer_us=171714
 
 **Додано**:
 
-- [`scripts/audit_wisdm_target_users.py`](/home/g00n3r/projects/esp32_cl_har/scripts/audit_wisdm_target_users.py:1)
+- [`scripts/data/audit_wisdm_target_users.py`](/home/g00n3r/projects/esp32_cl_har/scripts/data/audit_wisdm_target_users.py:1)
 - [`results/tables/wisdm_target_user_audit.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_target_user_audit.csv:1)
 
 **Команда**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/audit_wisdm_target_users.py
+/home/g00n3r/.venvs/base/bin/python scripts/data/audit_wisdm_target_users.py
 ```
 
 **Результат audit**:
@@ -3939,12 +3939,12 @@ user=31 total=497 coverage=6 min_nonzero=6
 
 **Додано**:
 
-- [`scripts/train_wisdm_fold_microflow32.py`](/home/g00n3r/projects/esp32_cl_har/scripts/train_wisdm_fold_microflow32.py:1)
+- [`scripts/training/train_wisdm_fold_microflow32.py`](/home/g00n3r/projects/esp32_cl_har/scripts/training/train_wisdm_fold_microflow32.py:1)
 
 **Команда**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 7 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/training/train_wisdm_fold_microflow32.py --target-user 7 --epochs 10
 ```
 
 **Output directory**:
@@ -4061,12 +4061,12 @@ Standing:   pred_Standing=29
 
 **Додано**:
 
-- [`scripts/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_wisdm_user7_cl.py:1)
+- [`scripts/simulation/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulation/simulate_wisdm_user7_cl.py:1)
 
 **Команда**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py
 ```
 
 **Output**:
@@ -4170,8 +4170,8 @@ Standing=67
 **Команди**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 20 --epochs 10
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 20
+/home/g00n3r/.venvs/base/bin/python scripts/training/train_wisdm_fold_microflow32.py --target-user 20 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 20
 ```
 
 **Generated files**:
@@ -4256,12 +4256,12 @@ budget=20/class:
 
 **Додано**:
 
-- [`scripts/simulate_balanced600_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_balanced600_cl.py:1)
+- [`scripts/simulation/simulate_balanced600_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulation/simulate_balanced600_cl.py:1)
 
 **Команда**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_balanced600_cl.py --adaptation-per-class 20
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_balanced600_cl.py --adaptation-per-class 20
 ```
 
 **Output**:
@@ -4345,11 +4345,11 @@ reservoir:
 
 **Додано / оновлено**:
 
-- [`scripts/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulate_wisdm_user7_cl.py:1)
+- [`scripts/simulation/simulate_wisdm_user7_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/simulation/simulate_wisdm_user7_cl.py:1)
   - узагальнено на `--target-user`
   - додано `--lrs`
   - output rows тепер містять `lr`
-- [`scripts/summarize_wisdm_target_user_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/summarize_wisdm_target_user_cl.py:1)
+- [`scripts/analysis/summarize_wisdm_target_user_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/analysis/summarize_wisdm_target_user_cl.py:1)
 - [`results/tables/wisdm_target_user_cl_screening_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_target_user_cl_screening_summary.csv:1)
 - [`results/analysis_notes_uk.md`](/home/g00n3r/projects/esp32_cl_har/results/analysis_notes_uk.md:1)
 - [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
@@ -4357,19 +4357,19 @@ reservoir:
 **Команди**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 27 --epochs 10
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 27 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/training/train_wisdm_fold_microflow32.py --target-user 27 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 27 --budgets 5 10 20 --lrs 0.001 0.003 0.01
 
-/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 8 --epochs 10
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 8 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/training/train_wisdm_fold_microflow32.py --target-user 8 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 8 --budgets 5 10 20 --lrs 0.001 0.003 0.01
 
-/home/g00n3r/.venvs/base/bin/python scripts/train_wisdm_fold_microflow32.py --target-user 19 --epochs 10
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 19 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/training/train_wisdm_fold_microflow32.py --target-user 19 --epochs 10
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 19 --budgets 5 10 20 --lrs 0.001 0.003 0.01
 
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 20 --budgets 5 10 20 --lrs 0.001 0.003 0.01
-/home/g00n3r/.venvs/base/bin/python scripts/simulate_wisdm_user7_cl.py --target-user 7 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 20 --budgets 5 10 20 --lrs 0.001 0.003 0.01
+/home/g00n3r/.venvs/base/bin/python scripts/simulation/simulate_wisdm_user7_cl.py --target-user 7 --budgets 5 10 20 --lrs 0.001 0.003 0.01
 
-/home/g00n3r/.venvs/base/bin/python scripts/summarize_wisdm_target_user_cl.py \
+/home/g00n3r/.venvs/base/bin/python scripts/analysis/summarize_wisdm_target_user_cl.py \
   results/tables/wisdm_user7_pc_cl_simulation.csv \
   results/tables/wisdm_user8_pc_cl_simulation.csv \
   results/tables/wisdm_user19_pc_cl_simulation.csv \
@@ -4472,7 +4472,7 @@ policy=fifo with replay_fifo_policy feature
 **Додано**:
 
 - [`src/bin/wisdm_user19_device_cl.rs`](/home/g00n3r/projects/esp32_cl_har/src/bin/wisdm_user19_device_cl.rs:1)
-- [`scripts/export_wisdm_target_user_head_rust.py`](/home/g00n3r/projects/esp32_cl_har/scripts/export_wisdm_target_user_head_rust.py:1)
+- [`scripts/data/export_wisdm_target_user_head_rust.py`](/home/g00n3r/projects/esp32_cl_har/scripts/data/export_wisdm_target_user_head_rust.py:1)
 - [`src/eval_artifacts/wisdm_user19_head.rs`](/home/g00n3r/projects/esp32_cl_har/src/eval_artifacts/wisdm_user19_head.rs:1)
 - [`Cargo.toml`](/home/g00n3r/projects/esp32_cl_har/Cargo.toml:1)
 - [`PLAN.md`](/home/g00n3r/projects/esp32_cl_har/PLAN.md:1)
@@ -4498,7 +4498,7 @@ generated head:  5,834 bytes source text
 **Команди**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/export_wisdm_target_user_head_rust.py --target-user 19
+/home/g00n3r/.venvs/base/bin/python scripts/data/export_wisdm_target_user_head_rust.py --target-user 19
 cargo build --features microflow32_backend --bin wisdm_user19_device_cl
 xtensa-esp32-elf-size target/xtensa-esp32-none-elf/debug/wisdm_user19_device_cl
 xtensa-esp32-elf-size -A target/xtensa-esp32-none-elf/debug/wisdm_user19_device_cl
@@ -4578,7 +4578,7 @@ script -q -c "timeout 260s bash -lc '. $HOME/export-esp.sh && cargo run --featur
 script -q -c "timeout 260s bash -lc '. $HOME/export-esp.sh && cargo run --features microflow32_backend,replay_fifo_policy --bin wisdm_user19_device_cl'" \
   logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt
 
-/home/g00n3r/.venvs/base/bin/python scripts/parse_wisdm_device_cl.py \
+/home/g00n3r/.venvs/base/bin/python scripts/parsing/parse_wisdm_device_cl.py \
   logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt \
   logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt
 ```
@@ -4587,7 +4587,7 @@ script -q -c "timeout 260s bash -lc '. $HOME/export-esp.sh && cargo run --featur
 
 - [`logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_reservoir_2026-05-13.txt:1)
 - [`logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt`](/home/g00n3r/projects/esp32_cl_har/logs/raw/wisdm_user19_device_cl/wisdm_user19_device_cl_fifo_2026-05-13.txt:1)
-- [`scripts/parse_wisdm_device_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parse_wisdm_device_cl.py:1)
+- [`scripts/parsing/parse_wisdm_device_cl.py`](/home/g00n3r/projects/esp32_cl_har/scripts/parsing/parse_wisdm_device_cl.py:1)
 - [`results/tables/wisdm_user19_device_cl_summary.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_summary.csv:1)
 - [`results/tables/wisdm_user19_device_cl_per_class.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_per_class.csv:1)
 - [`results/tables/wisdm_user19_device_cl_train.csv`](/home/g00n3r/projects/esp32_cl_har/results/tables/wisdm_user19_device_cl_train.csv:1)
@@ -4702,7 +4702,7 @@ FIFO update_us:
 
 **Додано / оновлено**:
 
-- [`scripts/build_wisdm_user19_device_cl_figures.py`](/home/g00n3r/projects/esp32_cl_har/scripts/build_wisdm_user19_device_cl_figures.py:1)
+- [`scripts/analysis/build_wisdm_user19_device_cl_figures.py`](/home/g00n3r/projects/esp32_cl_har/scripts/analysis/build_wisdm_user19_device_cl_figures.py:1)
 - [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
 - [`paper/results_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/results_draft_uk.md:1)
 - [`paper/discussion_draft_uk.md`](/home/g00n3r/projects/esp32_cl_har/paper/discussion_draft_uk.md:1)
@@ -4713,7 +4713,7 @@ FIFO update_us:
 **Команда**:
 
 ```bash
-/home/g00n3r/.venvs/base/bin/python scripts/build_wisdm_user19_device_cl_figures.py
+/home/g00n3r/.venvs/base/bin/python scripts/analysis/build_wisdm_user19_device_cl_figures.py
 ```
 
 **Generated tables**:
@@ -4759,8 +4759,8 @@ Device-Side Target-User WISDM CL
 
 ```bash
 /home/g00n3r/.venvs/base/bin/python -m py_compile \
-  scripts/build_wisdm_user19_device_cl_figures.py \
-  scripts/parse_wisdm_device_cl.py
+  scripts/analysis/build_wisdm_user19_device_cl_figures.py \
+  scripts/parsing/parse_wisdm_device_cl.py
 
 python3 - <<'PY'
 import json
@@ -4831,3 +4831,54 @@ env MPLCONFIGDIR=/tmp/matplotlib \
 - результати експериментів і raw logs не змінювались;
 - нові PNG/PDF фігури `fig_01...fig_08..._uk` згенеровано у `results/figures/`;
 - CSV tables `table_02...table_08..._uk.csv` згенеровано у `results/tables/`, але вони ігноруються правилом `*.csv`.
+
+## Фаза 7m — Repository cleanup і README onboarding
+
+**Дата**: 2026-05-14
+
+**Що зроблено**: репозиторій підготовлено як зрозумілий вхід для нової людини,
+яка відкриває project після статті:
+
+- повністю переписано [`README.md`](/home/g00n3r/projects/esp32_cl_har/README.md:1) англійською;
+- README тепер одразу вказує, що повний процес розробки описаний у [`DEVLOG.md`](/home/g00n3r/projects/esp32_cl_har/DEVLOG.md:1);
+- додано короткий research summary з ключовими числами: MicroFlow-32 latency, RAM replay cost, update cost, MPU6050 pilot і WISDM user 19 CL result;
+- Python scripts розкладено по тематичних піддиректоріях:
+  - `scripts/analysis/`;
+  - `scripts/checks/`;
+  - `scripts/data/`;
+  - `scripts/parsing/`;
+  - `scripts/simulation/`;
+  - `scripts/training/`;
+- оновлено посилання на scripts у DEVLOG/paper draft/generated коментарях;
+- прибрано закомічений generated `scripts/__pycache__`;
+- виправлено `PROJECT_ROOT` у scripts, які після переміщення мали глибший шлях;
+- для `scripts/training/train_wisdm_fold_microflow32.py` додано явний import path до `scripts/data`.
+
+**README commands now cover**:
+
+- main firmware build/flash;
+- no-adaptation, reservoir і FIFO modes;
+- WISDM device-side inference eval;
+- WISDM user 19 target-user CL eval;
+- embedded smoke binaries;
+- dataset export, target-user audit, training/export, simulation, parsing і figure/table generation scripts.
+
+**Verification**:
+
+```bash
+find scripts -name '*.py' -print0 | xargs -0 python3 -m py_compile
+
+cargo fmt --check
+
+. $HOME/export-esp.sh && \
+  cargo build --bin esp32_cl_har --features microflow32_backend,cl_uart_labels
+
+. $HOME/export-esp.sh && \
+  cargo build --bin wisdm_user19_device_cl --features microflow32_backend
+```
+
+**Межі кроку**:
+
+- firmware behavior не змінювалась;
+- модельні artifacts, raw logs, tables і figures не регенерувались;
+- зміни стосуються repository organization, documentation, script path fixes і Rust formatting.

@@ -266,10 +266,10 @@ Firmware друкує plain-text logs зі стабільними tags:
 Raw serial logs зберігаються у `logs/raw/`, а parsed outputs у `logs/parsed/`.
 Для parsing використовуються scripts:
 
-- `scripts/parse_experiment_logs.py`;
-- `scripts/summarize_experiment_runs.py`;
-- `scripts/evaluate_segments.py`;
-- `scripts/build_pilot_results_tables.py`.
+- `scripts/parsing/parse_experiment_logs.py`;
+- `scripts/analysis/summarize_experiment_runs.py`;
+- `scripts/analysis/evaluate_segments.py`;
+- `scripts/analysis/build_pilot_results_tables.py`.
 
 Paper-ready plots/tables генеруються у:
 

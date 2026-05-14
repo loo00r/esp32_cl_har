@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EVAL_ARTIFACT_DIR = PROJECT_ROOT / "src" / "eval_artifacts"
 MODEL_ARTIFACT_DIR = PROJECT_ROOT / "src" / "model_artifacts"
 OUT_DIR = PROJECT_ROOT / "results" / "tables"

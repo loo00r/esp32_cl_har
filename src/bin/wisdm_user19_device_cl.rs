@@ -11,7 +11,10 @@ use esp_hal::{
     time::{Duration, Instant},
 };
 use esp32_cl_har::{
-    model::{CLASS_LABELS, FEATURE_COUNT, INPUT_TENSOR_SIZE, MICROFLOW32_FEATURE_TENSOR_SIZE, NUM_CLASSES, WINDOW_SIZE},
+    model::{
+        CLASS_LABELS, FEATURE_COUNT, INPUT_TENSOR_SIZE, MICROFLOW32_FEATURE_TENSOR_SIZE,
+        NUM_CLASSES, WINDOW_SIZE,
+    },
     online_layer::OnlineLayer32,
     replay_buffer::{ReplayBuffer32, ReplayStrategy},
 };
@@ -21,17 +24,21 @@ use microflow::{buffer::Buffer2D, buffer::Buffer4D, model};
 type MicroflowQuantizedInput = Buffer4D<i8, 1, WINDOW_SIZE, FEATURE_COUNT, 1>;
 type MicroflowOutput = Buffer4D<f32, 1, 1, 1, MICROFLOW32_FEATURE_TENSOR_SIZE>;
 
-#[model("results/fold_artifacts/wisdm_user19_microflow32/microflow32_user19_feature_extractor_int8.tflite")]
+#[model(
+    "results/fold_artifacts/wisdm_user19_microflow32/microflow32_user19_feature_extractor_int8.tflite"
+)]
 pub struct WisdmUser19FeatureExtractor;
 
 include!("../eval_artifacts/wisdm_user19_head.rs");
 
 const TAG: &str = "wisdm_user19_target_cl";
 const TARGET_USER: u8 = 19;
-const WINDOWS: &[u8] =
-    include_bytes!("../../results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_windows_i8.bin");
-const LABELS: &[u8] =
-    include_bytes!("../../results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_labels_u8.bin");
+const WINDOWS: &[u8] = include_bytes!(
+    "../../results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_windows_i8.bin"
+);
+const LABELS: &[u8] = include_bytes!(
+    "../../results/fold_artifacts/wisdm_user19_microflow32/wisdm_user19_target_labels_u8.bin"
+);
 
 const BATCH_SIZE: usize = 12;
 const BUDGET_PER_CLASS: usize = 10;
@@ -144,7 +151,8 @@ fn selected_for_adaptation(idx: usize, label: u8, selected_seen: &[usize; NUM_CL
 
     // PC gate uses the first N windows per class, but always leaves at least
     // one held-out sample per class when support is non-zero.
-    selected_seen[class_idx] < BUDGET_PER_CLASS && selected_seen[class_idx] + 1 < class_support(label, idx)
+    selected_seen[class_idx] < BUDGET_PER_CLASS
+        && selected_seen[class_idx] + 1 < class_support(label, idx)
 }
 
 fn class_support(label: u8, upto_idx: usize) -> usize {
@@ -264,13 +272,7 @@ fn print_eval(phase: &str, split: &str, stats: &EvalStats) {
         };
         info!(
             "WISDM_CL_CLASS phase={} split={} class={} name={} support={} correct={} recall={}",
-            phase,
-            split,
-            class_idx,
-            CLASS_LABELS[class_idx],
-            support,
-            class_correct,
-            recall,
+            phase, split, class_idx, CLASS_LABELS[class_idx], support, class_correct, recall,
         );
         class_idx += 1;
     }

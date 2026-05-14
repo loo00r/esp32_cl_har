@@ -16,7 +16,7 @@ import numpy as np
 from export_wisdm_device_eval_artifact import ACTIVITY_ORDER, build_final_corpus
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUT_PATH = PROJECT_ROOT / "results" / "tables" / "wisdm_target_user_audit.csv"
 
 

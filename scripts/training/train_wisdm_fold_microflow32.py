@@ -11,6 +11,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,9 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.utils import to_categorical
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "data"))
 
 from export_wisdm_device_eval_artifact import (
     ACTIVITY_ORDER,
@@ -34,9 +38,6 @@ from export_wisdm_device_eval_artifact import (
     load_raw_wisdm,
     prepare_dataframe,
 )
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "data" / "WISDM_ar_v1.1" / "WISDM_ar_v1.1_raw.txt"
 DEFAULT_OUT_ROOT = PROJECT_ROOT / "results" / "fold_artifacts"
 SUMMARY_DIR = PROJECT_ROOT / "results" / "tables"

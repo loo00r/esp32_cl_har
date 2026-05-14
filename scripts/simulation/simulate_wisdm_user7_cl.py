@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = PROJECT_ROOT / "results" / "fold_artifacts"
 OUT_DIR = PROJECT_ROOT / "results" / "tables"
 
