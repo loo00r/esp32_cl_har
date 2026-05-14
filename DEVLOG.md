@@ -4776,3 +4776,58 @@ PY
 - hardware не запускався.
 - raw logs не змінювались.
 - git не чіпався.
+
+## Фаза 7l — Україномовний Kwon-style figure set у paper notebook
+
+**Дата**: 2026-05-14
+
+**Що зроблено**: оновлено [`notebooks/paper_results_analysis.ipynb`](/home/g00n3r/projects/esp32_cl_har/notebooks/paper_results_analysis.ipynb:1)
+для підготовки фінального набору рисунків статті з україномовними підписами та
+Kwon-подібним стилем: serif-шрифт, чорні контури, hatch-патерни, стримана
+сітка і підписи значень над стовпчиками.
+
+**Додано в notebook**:
+
+- `fig_01_system_pipeline_uk`: схема pipeline `MPU6050 → 80×3 → INT8 MicroFlow-32 → OnlineLayer32 → ReplayBuffer32 → prediction/update`;
+- `fig_02_microflow32_ablation_latency_ram_uk`: MicroFlow-64 vs MicroFlow-32 за latency і replay RAM;
+- `fig_03_update_cost_vs_inference_uk`: log-scale порівняння frozen inference з FIFO/reservoir update;
+- `fig_04_hardware_adaptation_acceptance_uk`: accepted-rate для upstairs-like MPU6050 pilot;
+- `fig_05_user19_accuracy_pre_post_uk`: User 19 accuracy до/після локальної адаптації;
+- `fig_06_user19_downstairs_recall_uk`: User 19 Downstairs recall до/після локальної адаптації;
+- `fig_08_user19_recall_heatmaps_uk`: heatmap повноти класів до/після адаптації.
+
+**Важлива межа даних**:
+
+У raw logs `wisdm_user19_device_cl_*_2026-05-13.txt` немає повної
+off-diagonal confusion matrix. Ноутбук явно позначає heatmap як матрицю
+повноти класів, щоб не вигадувати true→pred розподіл помилок.
+
+**Verification**:
+
+```bash
+python3 -m json.tool notebooks/paper_results_analysis.ipynb >/tmp/paper_results_analysis.json
+
+python3 - <<'PY'
+import ast, json
+from pathlib import Path
+nb = json.loads(Path('notebooks/paper_results_analysis.ipynb').read_text(encoding='utf-8'))
+for idx, cell in enumerate(nb['cells']):
+    if cell.get('cell_type') == 'code':
+        ast.parse(''.join(cell.get('source', [])))
+print('all code cells parse')
+PY
+
+env MPLCONFIGDIR=/tmp/matplotlib \
+  /home/g00n3r/.venvs/base/bin/jupyter nbconvert \
+  --to notebook \
+  --execute notebooks/paper_results_analysis.ipynb \
+  --output paper_results_analysis.executed.ipynb \
+  --output-dir /tmp
+```
+
+**Межі кроку**:
+
+- firmware не змінювалась;
+- результати експериментів і raw logs не змінювались;
+- нові PNG/PDF фігури `fig_01...fig_08..._uk` згенеровано у `results/figures/`;
+- CSV tables `table_02...table_08..._uk.csv` згенеровано у `results/tables/`, але вони ігноруються правилом `*.csv`.
